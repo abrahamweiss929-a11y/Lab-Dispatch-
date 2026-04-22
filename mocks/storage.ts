@@ -1,5 +1,6 @@
 import { makeRandomId } from "@/lib/ids";
 import { todayIso } from "@/lib/dates";
+import { normalizeUsPhone } from "@/lib/phone";
 import type {
   AdminDashboardCounts,
   DispatcherDashboardCounts,
@@ -11,6 +12,7 @@ import type {
   NewDoctor,
   NewDriver,
   NewDriverLocation,
+  NewMessage,
   NewOffice,
   NewPickupRequest,
   NewRoute,
@@ -543,6 +545,66 @@ export const storageMock: StorageService = {
     state.pickupRequests.set(id, newRequest);
     state.messages.set(messageId, { ...message, pickupRequestId: id });
     return newRequest;
+  },
+
+  async createMessage(input: NewMessage): Promise<Message> {
+    const id = makeRandomId();
+    const record: Message = {
+      id,
+      channel: input.channel,
+      fromIdentifier: input.fromIdentifier,
+      subject: input.subject,
+      body: input.body,
+      receivedAt: input.receivedAt ?? nowIso(),
+      pickupRequestId: input.pickupRequestId,
+    };
+    state.messages.set(id, record);
+    return record;
+  },
+
+  async findOfficeByPhone(phone: string): Promise<Office | null> {
+    const normalizedInput = normalizeUsPhone(phone);
+    if (normalizedInput === null) return null;
+    for (const office of state.offices.values()) {
+      if (office.phone === undefined) continue;
+      const normalizedOffice = normalizeUsPhone(office.phone);
+      if (normalizedOffice === null) continue;
+      if (normalizedOffice === normalizedInput && office.active) {
+        return office;
+      }
+    }
+    return null;
+  },
+
+  async findOfficeByEmail(email: string): Promise<Office | null> {
+    const needle = email.trim().toLowerCase();
+    if (needle.length === 0) return null;
+    for (const office of state.offices.values()) {
+      if (office.email === undefined) continue;
+      if (office.email.trim().toLowerCase() === needle && office.active) {
+        return office;
+      }
+    }
+    return null;
+  },
+
+  async linkMessageToRequest(
+    messageId: string,
+    pickupRequestId: string,
+  ): Promise<Message> {
+    const message = state.messages.get(messageId);
+    if (!message) {
+      throw new Error(`message ${messageId} not found`);
+    }
+    if (
+      message.pickupRequestId !== undefined &&
+      message.pickupRequestId !== pickupRequestId
+    ) {
+      throw new Error("message already linked");
+    }
+    const updated: Message = { ...message, pickupRequestId };
+    state.messages.set(messageId, updated);
+    return updated;
   },
 
   async countDispatcherDashboard(

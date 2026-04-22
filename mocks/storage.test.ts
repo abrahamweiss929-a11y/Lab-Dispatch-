@@ -871,6 +871,176 @@ describe("storageMock", () => {
     });
   });
 
+  describe("createMessage", () => {
+    it("inserts a message and returns the stored record", async () => {
+      const record = await storageMock.createMessage({
+        channel: "sms",
+        fromIdentifier: "+15550001111",
+        body: "pickup please",
+      });
+      expect(record.id).toBeTruthy();
+      expect(record.channel).toBe("sms");
+      expect(record.fromIdentifier).toBe("+15550001111");
+      expect(record.body).toBe("pickup please");
+      expect(record.receivedAt).toBeTruthy();
+      expect(record.pickupRequestId).toBeUndefined();
+
+      const all = await storageMock.listMessages();
+      expect(all).toHaveLength(1);
+      expect(all[0]?.id).toBe(record.id);
+    });
+
+    it("preserves an explicit receivedAt and subject", async () => {
+      const when = "2026-04-22T10:00:00.000Z";
+      const record = await storageMock.createMessage({
+        channel: "email",
+        fromIdentifier: "front@acme.test",
+        subject: "Pickup",
+        body: "body",
+        receivedAt: when,
+      });
+      expect(record.receivedAt).toBe(when);
+      expect(record.subject).toBe("Pickup");
+    });
+  });
+
+  describe("findOfficeByPhone", () => {
+    it("matches after normalization on BOTH sides", async () => {
+      const office = await storageMock.createOffice({
+        name: "Acme Clinic",
+        slug: "acme-clinic",
+        pickupUrlToken: "a1b2c3d4e5f6",
+        address: ADDRESS,
+        active: true,
+        phone: "(555) 123-4567",
+      });
+      const found = await storageMock.findOfficeByPhone("+15551234567");
+      expect(found?.id).toBe(office.id);
+    });
+
+    it("returns null on wrong number", async () => {
+      await storageMock.createOffice({
+        name: "Acme Clinic",
+        slug: "acme-clinic",
+        pickupUrlToken: "a1b2c3d4e5f6",
+        address: ADDRESS,
+        active: true,
+        phone: "(555) 123-4567",
+      });
+      expect(await storageMock.findOfficeByPhone("+15559999999")).toBeNull();
+    });
+
+    it("returns null when the matching office is inactive", async () => {
+      await storageMock.createOffice({
+        name: "Old Clinic",
+        slug: "old-clinic",
+        pickupUrlToken: "deadbeef1234",
+        address: ADDRESS,
+        active: false,
+        phone: "+15551234567",
+      });
+      expect(await storageMock.findOfficeByPhone("+15551234567")).toBeNull();
+    });
+
+    it("returns null when the input cannot be normalized", async () => {
+      await storageMock.createOffice({
+        name: "Acme Clinic",
+        slug: "acme-clinic",
+        pickupUrlToken: "a1b2c3d4e5f6",
+        address: ADDRESS,
+        active: true,
+        phone: "+15551234567",
+      });
+      expect(await storageMock.findOfficeByPhone("abc")).toBeNull();
+    });
+  });
+
+  describe("findOfficeByEmail", () => {
+    it("matches case-insensitively after trimming", async () => {
+      const office = await storageMock.createOffice({
+        name: "Acme Clinic",
+        slug: "acme-clinic",
+        pickupUrlToken: "a1b2c3d4e5f6",
+        address: ADDRESS,
+        active: true,
+        email: "Front-Desk@Acme.Test",
+      });
+      const found = await storageMock.findOfficeByEmail(
+        "  front-desk@acme.test  ",
+      );
+      expect(found?.id).toBe(office.id);
+    });
+
+    it("returns null on a different address", async () => {
+      await storageMock.createOffice({
+        name: "Acme Clinic",
+        slug: "acme-clinic",
+        pickupUrlToken: "a1b2c3d4e5f6",
+        address: ADDRESS,
+        active: true,
+        email: "front-desk@acme.test",
+      });
+      expect(
+        await storageMock.findOfficeByEmail("someone@else.test"),
+      ).toBeNull();
+    });
+
+    it("returns null when the matching office is inactive", async () => {
+      await storageMock.createOffice({
+        name: "Old Clinic",
+        slug: "old-clinic",
+        pickupUrlToken: "deadbeef1234",
+        address: ADDRESS,
+        active: false,
+        email: "old@clinic.test",
+      });
+      expect(await storageMock.findOfficeByEmail("old@clinic.test")).toBeNull();
+    });
+  });
+
+  describe("linkMessageToRequest", () => {
+    it("links a message to a pickup request id", async () => {
+      const msg = await storageMock.createMessage({
+        channel: "sms",
+        fromIdentifier: "+15550001111",
+        body: "hi",
+      });
+      const linked = await storageMock.linkMessageToRequest(msg.id, "req-1");
+      expect(linked.pickupRequestId).toBe("req-1");
+      const all = await storageMock.listMessages();
+      expect(all[0]?.pickupRequestId).toBe("req-1");
+    });
+
+    it("throws on unknown messageId", async () => {
+      await expect(
+        storageMock.linkMessageToRequest("missing", "req-1"),
+      ).rejects.toThrow(/message missing not found/);
+    });
+
+    it("throws when the message is already linked to a different id", async () => {
+      const msg = await storageMock.createMessage({
+        channel: "sms",
+        fromIdentifier: "+15550001111",
+        body: "hi",
+      });
+      await storageMock.linkMessageToRequest(msg.id, "req-1");
+      await expect(
+        storageMock.linkMessageToRequest(msg.id, "req-2"),
+      ).rejects.toThrow(/already linked/);
+    });
+
+    it("is idempotent when re-linking to the same id", async () => {
+      const msg = await storageMock.createMessage({
+        channel: "sms",
+        fromIdentifier: "+15550001111",
+        body: "hi",
+      });
+      await storageMock.linkMessageToRequest(msg.id, "req-1");
+      const again = await storageMock.linkMessageToRequest(msg.id, "req-1");
+      expect(again.pickupRequestId).toBe("req-1");
+    });
+  });
+
   describe("createRequestFromMessage", () => {
     it("creates a pending request with channel / sourceIdentifier / rawMessage", async () => {
       seedMessage({

@@ -5,6 +5,7 @@ import type {
   DriverLocation,
   Message,
   Office,
+  PickupChannel,
   PickupRequest,
   PickupStatus,
   Route,
@@ -72,6 +73,18 @@ export interface ListMessagesFilter {
    * 'flagged'`. When undefined/false, returns all messages.
    */
   flagged?: boolean;
+}
+
+export interface NewMessage {
+  /** "sms" | "email" — pipeline never calls with "web" | "manual". */
+  channel: PickupChannel;
+  fromIdentifier: string;
+  subject?: string;
+  body: string;
+  /** Defaults to now when omitted. */
+  receivedAt?: string;
+  /** Almost always unset at create-time. */
+  pickupRequestId?: string;
 }
 
 export interface NewRoute {
@@ -289,6 +302,33 @@ export interface StorageService {
    */
   createRequestFromMessage(messageId: string): Promise<PickupRequest>;
 
+  /** Inserts a `messages` row. Returns the stored Message. */
+  createMessage(input: NewMessage): Promise<Message>;
+
+  /**
+   * Matches an office by `phone`. Caller is responsible for normalization;
+   * the mock re-normalizes both sides via `normalizeUsPhone` so that
+   * offices stored with loose formatting still match. Returns null on no
+   * match or when the matching office is inactive.
+   */
+  findOfficeByPhone(phone: string): Promise<Office | null>;
+
+  /**
+   * Matches an office by `email`, case-insensitive. Trims surrounding
+   * whitespace on both sides. Returns null on no match or inactive.
+   */
+  findOfficeByEmail(email: string): Promise<Office | null>;
+
+  /**
+   * Updates `messages.pickupRequestId`. Throws `"message <id> not found"`
+   * on bad id. Idempotent when the target id already matches; throws
+   * `"message already linked"` when the stored id differs.
+   */
+  linkMessageToRequest(
+    messageId: string,
+    pickupRequestId: string,
+  ): Promise<Message>;
+
   // Dispatcher dashboard ----------------------------------------------------
 
   /**
@@ -409,6 +449,18 @@ export function createRealStorageService(): StorageService {
       notConfigured();
     },
     async createRequestFromMessage() {
+      notConfigured();
+    },
+    async createMessage() {
+      notConfigured();
+    },
+    async findOfficeByPhone() {
+      notConfigured();
+    },
+    async findOfficeByEmail() {
+      notConfigured();
+    },
+    async linkMessageToRequest() {
       notConfigured();
     },
     async countDispatcherDashboard() {

@@ -4,6 +4,7 @@ import { getServices } from "@/interfaces";
 import { formatShortDateTime } from "@/lib/dates";
 import { requireDispatcherSession } from "@/lib/require-dispatcher";
 import { ConvertToRequestButton } from "./_components/ConvertToRequestButton";
+import { SimulateInboundPanel } from "./_components/SimulateInboundPanel";
 
 type FilterTab = "flagged" | "all";
 
@@ -28,8 +29,11 @@ export default async function DispatcherMessagesPage({
     flagged: filter === "flagged" ? true : undefined,
   });
 
+  const showSimulatePanel = process.env.USE_MOCKS !== "false";
+
   return (
     <DispatcherLayout title="Inbound messages">
+      {showSimulatePanel ? <SimulateInboundPanel /> : null}
       <div className="mb-4 flex items-center gap-4">
         <nav className="flex gap-1 rounded bg-gray-100 p-1 text-sm">
           <Link
