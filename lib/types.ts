@@ -1,10 +1,10 @@
 export type UserRole = "driver" | "dispatcher" | "admin";
 
 export interface Driver {
-  id: string;
-  userId: string;
-  name: string;
-  phone: string;
+  profileId: string;
+  fullName: string;
+  phone?: string;
+  vehicleLabel?: string;
   active: boolean;
   createdAt: string;
 }
@@ -36,15 +36,9 @@ export interface Office {
   email?: string;
 }
 
-export type PickupChannel = "sms" | "email" | "web";
+export type PickupChannel = "sms" | "email" | "web" | "manual";
 export type PickupUrgency = "routine" | "urgent" | "stat";
-export type PickupStatus =
-  | "pending"
-  | "scheduled"
-  | "en_route"
-  | "picked_up"
-  | "cancelled"
-  | "flagged";
+export type PickupStatus = "pending" | "assigned" | "completed" | "flagged";
 
 export interface PickupRequest {
   id: string;
@@ -52,10 +46,13 @@ export interface PickupRequest {
   channel: PickupChannel;
   urgency: PickupUrgency;
   sampleCount?: number;
-  notes?: string;
+  specialInstructions?: string;
+  sourceIdentifier?: string;
+  flaggedReason?: string;
   rawMessage?: string;
   status: PickupStatus;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface Stop {
