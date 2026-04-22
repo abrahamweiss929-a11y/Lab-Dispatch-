@@ -89,4 +89,10 @@ describe("supabase/schema.sql", () => {
   it("retains at least one TODO(auth) comment alongside RLS enablement", () => {
     expect(sql).toMatch(/--\s*TODO\(auth\)/i);
   });
+
+  it("enforces one route per driver per day via routes_driver_id_route_date_key", () => {
+    expect(sql).toMatch(
+      /constraint\s+routes_driver_id_route_date_key\s+unique\s*\(\s*driver_id\s*,\s*route_date\s*\)/i,
+    );
+  });
 });

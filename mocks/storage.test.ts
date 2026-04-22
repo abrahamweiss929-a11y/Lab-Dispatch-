@@ -557,6 +557,132 @@ describe("storageMock", () => {
     });
   });
 
+  describe("stop check-ins", () => {
+    async function seedStopRow() {
+      const driver = await storageMock.createDriver({
+        email: "dd@test",
+        fullName: "Driver",
+        active: true,
+      });
+      const route = await storageMock.createRoute({
+        driverId: driver.profileId,
+        routeDate: "2026-04-22",
+      });
+      const request = await storageMock.createPickupRequest({
+        officeId: "o1",
+        channel: "manual",
+        urgency: "routine",
+      });
+      const stop = await storageMock.assignRequestToRoute(
+        route.id,
+        request.id,
+      );
+      return { stop };
+    }
+
+    it("getStop returns the seeded stop", async () => {
+      const { stop } = await seedStopRow();
+      const found = await storageMock.getStop(stop.id);
+      expect(found?.id).toBe(stop.id);
+    });
+
+    it("getStop returns null on unknown id", async () => {
+      expect(await storageMock.getStop("missing")).toBeNull();
+    });
+
+    it("markStopArrived sets arrivedAt on the happy path", async () => {
+      const { stop } = await seedStopRow();
+      const updated = await storageMock.markStopArrived(stop.id);
+      expect(updated.arrivedAt).toBeTruthy();
+      const refreshed = await storageMock.getStop(stop.id);
+      expect(refreshed?.arrivedAt).toBe(updated.arrivedAt);
+    });
+
+    it("markStopArrived throws on missing id", async () => {
+      await expect(storageMock.markStopArrived("missing")).rejects.toThrow(
+        /stop missing not found/,
+      );
+    });
+
+    it("markStopArrived throws when already arrived", async () => {
+      const { stop } = await seedStopRow();
+      await storageMock.markStopArrived(stop.id);
+      await expect(storageMock.markStopArrived(stop.id)).rejects.toThrow(
+        /already arrived/,
+      );
+    });
+
+    it("markStopPickedUp sets pickedUpAt after arrival", async () => {
+      const { stop } = await seedStopRow();
+      await storageMock.markStopArrived(stop.id);
+      const updated = await storageMock.markStopPickedUp(stop.id);
+      expect(updated.pickedUpAt).toBeTruthy();
+    });
+
+    it("markStopPickedUp throws on missing id", async () => {
+      await expect(storageMock.markStopPickedUp("missing")).rejects.toThrow(
+        /stop missing not found/,
+      );
+    });
+
+    it("markStopPickedUp throws when not yet arrived", async () => {
+      const { stop } = await seedStopRow();
+      await expect(storageMock.markStopPickedUp(stop.id)).rejects.toThrow(
+        /not yet arrived/,
+      );
+    });
+
+    it("markStopPickedUp throws when already picked up", async () => {
+      const { stop } = await seedStopRow();
+      await storageMock.markStopArrived(stop.id);
+      await storageMock.markStopPickedUp(stop.id);
+      await expect(storageMock.markStopPickedUp(stop.id)).rejects.toThrow(
+        /already picked up/,
+      );
+    });
+  });
+
+  describe("recordDriverLocation", () => {
+    it("appends a row that listDriverLocations can see", async () => {
+      const row = await storageMock.recordDriverLocation({
+        driverId: "d1",
+        routeId: "r1",
+        lat: 40.7,
+        lng: -74.0,
+      });
+      expect(row.id).toBeTruthy();
+      expect(row.driverId).toBe("d1");
+      expect(row.routeId).toBe("r1");
+      expect(row.lat).toBe(40.7);
+      expect(row.lng).toBe(-74.0);
+
+      const fresh = await storageMock.listDriverLocations({ sinceMinutes: 1 });
+      expect(fresh.map((l) => l.driverId)).toContain("d1");
+    });
+
+    it("defaults recordedAt to a near-now timestamp when omitted", async () => {
+      const before = Date.now();
+      const row = await storageMock.recordDriverLocation({
+        driverId: "d1",
+        lat: 1,
+        lng: 1,
+      });
+      const ts = Date.parse(row.recordedAt);
+      expect(Math.abs(ts - before)).toBeLessThan(5_000);
+    });
+
+    it("preserves an explicit recordedAt", async () => {
+      const when = "2026-04-22T12:34:56.000Z";
+      const row = await storageMock.recordDriverLocation({
+        driverId: "d1",
+        lat: 1,
+        lng: 1,
+        recordedAt: when,
+      });
+      expect(row.recordedAt).toBe(when);
+    });
+  });
+
   describe("listDriverLocations", () => {
     it("returns at most one fresh row per driver, latest first", async () => {
       const now = Date.now();

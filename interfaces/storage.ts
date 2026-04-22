@@ -54,6 +54,17 @@ export interface ListDriverLocationsFilter {
   sinceMinutes?: number;
 }
 
+export interface NewDriverLocation {
+  driverId: string;
+  routeId?: string;
+  /** -90..90 */
+  lat: number;
+  /** -180..180 */
+  lng: number;
+  /** ISO8601; defaults to now. */
+  recordedAt?: string;
+}
+
 export interface ListMessagesFilter {
   /**
    * When true, returns messages whose `pickupRequestId` is unset (orphans
@@ -206,6 +217,27 @@ export interface StorageService {
    */
   reorderStops(routeId: string, orderedStopIds: string[]): Promise<void>;
 
+  // Stop check-ins ---------------------------------------------------------
+
+  /** Returns null when the stop does not exist. */
+  getStop(id: string): Promise<Stop | null>;
+
+  /**
+   * Sets `arrivedAt = now` if unset and returns the updated Stop.
+   * Throws `"stop <id> not found"` on bad id.
+   * Throws `"stop <id> already arrived"` when arrivedAt is already set.
+   */
+  markStopArrived(stopId: string): Promise<Stop>;
+
+  /**
+   * Sets `pickedUpAt = now` if unset and returns the updated Stop.
+   * Throws `"stop <id> not found"` on bad id.
+   * Throws `"stop <id> not yet arrived"` when arrivedAt is unset
+   *   (we enforce the arrived → picked-up ordering).
+   * Throws `"stop <id> already picked up"` when pickedUpAt is already set.
+   */
+  markStopPickedUp(stopId: string): Promise<Stop>;
+
   // Driver locations --------------------------------------------------------
 
   /**
@@ -216,6 +248,14 @@ export interface StorageService {
   listDriverLocations(
     filter?: ListDriverLocationsFilter,
   ): Promise<DriverLocation[]>;
+
+  /**
+   * Appends a row to driver_locations. `recordedAt` defaults to now when
+   * omitted. Returns the inserted row. No throws on happy path; numeric
+   * range validation is the caller's responsibility (the server action
+   * does it).
+   */
+  recordDriverLocation(input: NewDriverLocation): Promise<DriverLocation>;
 
   // Messages ----------------------------------------------------------------
 
@@ -339,7 +379,19 @@ export function createRealStorageService(): StorageService {
     async reorderStops() {
       notConfigured();
     },
+    async getStop() {
+      notConfigured();
+    },
+    async markStopArrived() {
+      notConfigured();
+    },
+    async markStopPickedUp() {
+      notConfigured();
+    },
     async listDriverLocations() {
+      notConfigured();
+    },
+    async recordDriverLocation() {
       notConfigured();
     },
     async listMessages() {

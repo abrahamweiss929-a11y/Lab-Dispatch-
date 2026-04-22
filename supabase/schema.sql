@@ -96,7 +96,8 @@ create table if not exists public.routes (
   status public.route_status not null default 'pending',
   started_at timestamptz,
   completed_at timestamptz,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  constraint routes_driver_id_route_date_key unique (driver_id, route_date)
 );
 
 create table if not exists public.stops (

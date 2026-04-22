@@ -10,6 +10,7 @@ import type {
   ListRoutesFilter,
   NewDoctor,
   NewDriver,
+  NewDriverLocation,
   NewOffice,
   NewPickupRequest,
   NewRoute,
@@ -414,6 +415,55 @@ export const storageMock: StorageService = {
         state.stops.set(id, { ...stop, position: idx + 1 });
       }
     });
+  },
+
+  async getStop(id: string): Promise<Stop | null> {
+    return state.stops.get(id) ?? null;
+  },
+
+  async markStopArrived(stopId: string): Promise<Stop> {
+    const stop = state.stops.get(stopId);
+    if (!stop) {
+      throw new Error(`stop ${stopId} not found`);
+    }
+    if (stop.arrivedAt) {
+      throw new Error(`stop ${stopId} already arrived`);
+    }
+    const updated: Stop = { ...stop, arrivedAt: nowIso() };
+    state.stops.set(stopId, updated);
+    return updated;
+  },
+
+  async markStopPickedUp(stopId: string): Promise<Stop> {
+    const stop = state.stops.get(stopId);
+    if (!stop) {
+      throw new Error(`stop ${stopId} not found`);
+    }
+    if (!stop.arrivedAt) {
+      throw new Error(`stop ${stopId} not yet arrived`);
+    }
+    if (stop.pickedUpAt) {
+      throw new Error(`stop ${stopId} already picked up`);
+    }
+    const updated: Stop = { ...stop, pickedUpAt: nowIso() };
+    state.stops.set(stopId, updated);
+    return updated;
+  },
+
+  async recordDriverLocation(
+    input: NewDriverLocation,
+  ): Promise<DriverLocation> {
+    const id = String(state.driverLocations.length + 1);
+    const loc: DriverLocation = {
+      id,
+      driverId: input.driverId,
+      routeId: input.routeId,
+      lat: input.lat,
+      lng: input.lng,
+      recordedAt: input.recordedAt ?? nowIso(),
+    };
+    state.driverLocations.push(loc);
+    return loc;
   },
 
   async listDriverLocations(

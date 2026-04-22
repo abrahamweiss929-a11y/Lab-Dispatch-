@@ -31,6 +31,7 @@ Things that require the user's accounts, API keys, or decisions before v1 can go
 **What to provide:** `NEXT_PUBLIC_MAPBOX_TOKEN`
 **Where it plugs in:** `interfaces/maps.ts` (real adapter); dispatcher map page (`app/dispatcher/map/page.tsx`) currently renders a table + callout explaining the deferral.
 **Workaround in place:** `mocks/maps.ts` — deterministic fake `geocode` (base `(40.0, -74.0)` + sum-of-char-codes offset), `routeFor` returns `stops.length * 1000 m` / `stops.length * 120 s` and a synthetic polyline, `etaFor` uses inline haversine distance × 60 sec/km. Dispatcher map page lists driver rows instead of rendering a real map; unblocks when `MAPBOX_TOKEN` is set and the Mapbox GL JS client is integrated.
+  - Driver stop detail page `/driver/route/[stopId]` currently renders address + "Open in Maps" Google Maps deep link; inline Mapbox route view lands with the Mapbox integration feature.
 
 ### [anthropic] Anthropic API key
 **Type:** API key
