@@ -179,6 +179,28 @@ export const storageMock: StorageService = {
     return state.offices.get(id) ?? null;
   },
 
+  /**
+   * Full-scan lookup by (slug, pickupUrlToken). Matches only `active`
+   * offices — inactive rows resolve to null because the public pickup
+   * form must treat deactivated links as unknown. Real Supabase adapter
+   * will back this with an index on (slug, pickup_url_token).
+   */
+  async findOfficeBySlugToken(
+    slug: string,
+    token: string,
+  ): Promise<Office | null> {
+    for (const office of state.offices.values()) {
+      if (
+        office.slug === slug &&
+        office.pickupUrlToken === token &&
+        office.active
+      ) {
+        return office;
+      }
+    }
+    return null;
+  },
+
   async updateOffice(
     id: string,
     patch: Partial<Omit<Office, "id">>,

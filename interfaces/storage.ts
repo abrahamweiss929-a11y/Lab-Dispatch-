@@ -117,6 +117,14 @@ export interface StorageService {
   /** Returns null when the office does not exist. */
   getOffice(id: string): Promise<Office | null>;
   /**
+   * Returns the office whose (slug, pickupUrlToken) pair matches, and
+   * only when `active === true`. Inactive matches resolve to null — the
+   * public pickup form treats them as unknown. Real Supabase adapter
+   * will back this with an index on (slug, pickup_url_token) for O(1)
+   * lookup; the mock full-scans.
+   */
+  findOfficeBySlugToken(slug: string, token: string): Promise<Office | null>;
+  /**
    * Shallow-merges `patch` into the existing office. `address` is treated
    * as a full replacement (not deep-merged) when present. Throws
    * `Error("office <id> not found")` when the id is missing.
@@ -329,6 +337,9 @@ export function createRealStorageService(): StorageService {
       notConfigured();
     },
     async getOffice() {
+      notConfigured();
+    },
+    async findOfficeBySlugToken() {
       notConfigured();
     },
     async updateOffice() {

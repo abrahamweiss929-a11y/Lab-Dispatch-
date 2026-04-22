@@ -142,6 +142,68 @@ describe("storageMock", () => {
     expect(updated.status).toBe("completed");
   });
 
+  describe("findOfficeBySlugToken", () => {
+    it("returns the office on an exact (slug, token) match", async () => {
+      const office = await storageMock.createOffice({
+        name: "Acme Clinic",
+        slug: "acme-clinic",
+        pickupUrlToken: "a7b2c3d4e5f6",
+        address: ADDRESS,
+        active: true,
+      });
+      const found = await storageMock.findOfficeBySlugToken(
+        "acme-clinic",
+        "a7b2c3d4e5f6",
+      );
+      expect(found?.id).toBe(office.id);
+    });
+
+    it("returns null when the token does not match", async () => {
+      await storageMock.createOffice({
+        name: "Acme Clinic",
+        slug: "acme-clinic",
+        pickupUrlToken: "a7b2c3d4e5f6",
+        address: ADDRESS,
+        active: true,
+      });
+      expect(
+        await storageMock.findOfficeBySlugToken(
+          "acme-clinic",
+          "wrongtoken001",
+        ),
+      ).toBeNull();
+    });
+
+    it("returns null when the slug does not match", async () => {
+      await storageMock.createOffice({
+        name: "Acme Clinic",
+        slug: "acme-clinic",
+        pickupUrlToken: "a7b2c3d4e5f6",
+        address: ADDRESS,
+        active: true,
+      });
+      expect(
+        await storageMock.findOfficeBySlugToken(
+          "not-acme",
+          "a7b2c3d4e5f6",
+        ),
+      ).toBeNull();
+    });
+
+    it("returns null when the office is inactive (even on exact match)", async () => {
+      await storageMock.createOffice({
+        name: "Old Clinic",
+        slug: "old-clinic",
+        pickupUrlToken: "deadbeef1234",
+        address: ADDRESS,
+        active: false,
+      });
+      expect(
+        await storageMock.findOfficeBySlugToken("old-clinic", "deadbeef1234"),
+      ).toBeNull();
+    });
+  });
+
   it("getDriver / getDoctor / getOffice return null when the id is missing", async () => {
     expect(await storageMock.getDriver("nope")).toBeNull();
     expect(await storageMock.getDoctor("nope")).toBeNull();
