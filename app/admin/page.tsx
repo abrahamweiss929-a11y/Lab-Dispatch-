@@ -1,29 +1,60 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
+import Link from "next/link";
+import { AdminLayout } from "@/components/AdminLayout";
+import { getServices } from "@/interfaces";
+import { requireAdminSession } from "@/lib/require-admin";
 
-export default function AdminPage() {
-  const session = getSession();
-  if (!session || session.role !== "admin") {
-    redirect("/login");
+interface StatCardProps {
+  label: string;
+  value: number;
+  href?: string;
+}
+
+function StatCard({ label, value, href }: StatCardProps) {
+  const content = (
+    <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+      <p className="text-sm font-medium text-gray-500">{label}</p>
+      <p className="mt-2 text-3xl font-semibold text-gray-900">{value}</p>
+    </div>
+  );
+  if (href) {
+    return (
+      <Link href={href} className="block hover:shadow-md">
+        {content}
+      </Link>
+    );
   }
+  // Pending pickups: no link yet. Links to dispatcher queue; wired when that
+  // feature lands.
+  return content;
+}
+
+export default async function AdminDashboardPage() {
+  requireAdminSession();
+  const counts = await getServices().storage.countAdminDashboard();
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
-      <h1 className="text-3xl font-bold tracking-tight">Admin</h1>
-      <p className="text-gray-700">Hello, admin {session.userId}</p>
-      <nav className="flex gap-4 text-sm">
-        <a href="/driver" className="text-blue-600 hover:underline">
-          Driver tree
-        </a>
-        <a href="/dispatcher" className="text-blue-600 hover:underline">
-          Dispatcher tree
-        </a>
-        <a href="/admin" className="text-blue-600 hover:underline">
-          Admin tree
-        </a>
-      </nav>
-      <a href="/logout" className="text-sm text-blue-600 hover:underline">
-        Log out
-      </a>
-    </main>
+    <AdminLayout title="Dashboard">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label="Drivers"
+          value={counts.drivers}
+          href="/admin/drivers"
+        />
+        <StatCard
+          label="Doctors"
+          value={counts.doctors}
+          href="/admin/doctors"
+        />
+        <StatCard
+          label="Offices"
+          value={counts.offices}
+          href="/admin/offices"
+        />
+        <StatCard
+          label="Pending pickups"
+          value={counts.pendingPickupRequests}
+        />
+      </div>
+    </AdminLayout>
   );
 }

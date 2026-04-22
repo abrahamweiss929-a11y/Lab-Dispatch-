@@ -34,6 +34,7 @@ export interface Office {
   lng?: number;
   phone?: string;
   email?: string;
+  active: boolean;
 }
 
 export type PickupChannel = "sms" | "email" | "web" | "manual";

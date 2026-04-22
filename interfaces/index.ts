@@ -36,6 +36,8 @@ import type {
   SmsService,
 } from "./sms";
 import type {
+  AdminDashboardCounts,
+  DriverAccountSummary,
   ListPickupRequestsFilter,
   NewDoctor,
   NewDriver,
@@ -92,8 +94,10 @@ export function resetAllMocks(): void {
 }
 
 export type {
+  AdminDashboardCounts,
   AiService,
   AuthService,
+  DriverAccountSummary,
   EmailSendParams,
   EmailSendResult,
   EmailService,
