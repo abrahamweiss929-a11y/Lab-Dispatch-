@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { getServices, resetAllMocks } from "./index";
 import { NotConfiguredError } from "@/lib/errors";
 import { getSent as getSentSms } from "@/mocks/sms";
+import { storageMock } from "@/mocks/storage";
+import { resetSeedFlag } from "@/mocks/seed";
 
 describe("getServices()", () => {
   beforeEach(() => {
@@ -56,5 +58,46 @@ describe("getServices()", () => {
     expect(getSentSms()).toHaveLength(1);
     resetAllMocks();
     expect(getSentSms()).toHaveLength(0);
+  });
+
+  describe("auto-seed hook", () => {
+    beforeEach(() => {
+      resetAllMocks();
+      resetSeedFlag();
+    });
+
+    it("does not auto-seed under NODE_ENV=test", async () => {
+      // Vitest already sets NODE_ENV=test; make it explicit so the
+      // intent reads clearly. No stub needed for the negative case,
+      // but we assert current state and the post-getServices state.
+      expect(process.env.NODE_ENV).toBe("test");
+      getServices();
+      expect(await storageMock.listOffices()).toHaveLength(0);
+      expect(await storageMock.listPickupRequests()).toHaveLength(0);
+    });
+
+    it("auto-seeds under NODE_ENV=development", async () => {
+      vi.stubEnv("NODE_ENV", "development");
+      getServices();
+      expect(await storageMock.listOffices()).toHaveLength(6);
+      expect(await storageMock.listPickupRequests()).toHaveLength(20);
+    });
+
+    it("skips seeding when SEED_MOCKS=false even in development", async () => {
+      vi.stubEnv("NODE_ENV", "development");
+      vi.stubEnv("SEED_MOCKS", "false");
+      getServices();
+      expect(await storageMock.listOffices()).toHaveLength(0);
+    });
+
+    it("resetAllMocks() clears the seed flag so the next getServices() re-seeds", async () => {
+      vi.stubEnv("NODE_ENV", "development");
+      getServices();
+      expect(await storageMock.listOffices()).toHaveLength(6);
+      resetAllMocks();
+      expect(await storageMock.listOffices()).toHaveLength(0);
+      getServices();
+      expect(await storageMock.listOffices()).toHaveLength(6);
+    });
   });
 });

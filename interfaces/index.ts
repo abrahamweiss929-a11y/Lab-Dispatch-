@@ -4,6 +4,7 @@ import { emailMock, resetEmailMock } from "@/mocks/email";
 import { mapsMock, resetMapsMock } from "@/mocks/maps";
 import { smsMock, resetSmsMock } from "@/mocks/sms";
 import { storageMock, resetStorageMock } from "@/mocks/storage";
+import { isSeeded, resetSeedFlag, seedMocks } from "@/mocks/seed";
 
 import { createRealAiService } from "./ai";
 import { createRealAuthService } from "./auth";
@@ -66,9 +67,34 @@ export interface Services {
   auth: AuthService;
 }
 
+/**
+ * Auto-seeds the mock storage with demo fixtures at most once per
+ * process. Called from `getServices()` before returning mock services.
+ *
+ * Gates (all must pass):
+ *   - `process.env.NODE_ENV !== "test"` — keep tests pristine.
+ *   - `process.env.SEED_MOCKS !== "false"` — opt-out escape hatch.
+ *   - `!isSeeded()` — idempotent across repeat `getServices()` calls and
+ *     across Next.js HMR reloads (flag lives on `globalThis`).
+ *
+ * Any seed error is caught and logged via `console.warn` — a broken
+ * seeder must NOT prevent the app from booting.
+ */
+function maybeAutoSeed(): void {
+  if (process.env.NODE_ENV === "test") return;
+  if (process.env.SEED_MOCKS === "false") return;
+  if (isSeeded()) return;
+  try {
+    seedMocks();
+  } catch (err) {
+    console.warn("seedMocks() failed; continuing with empty mock storage", err);
+  }
+}
+
 export function getServices(): Services {
   const flag = process.env.USE_MOCKS;
   if (flag === undefined || flag === "true") {
+    maybeAutoSeed();
     return {
       sms: smsMock,
       email: emailMock,
@@ -98,6 +124,7 @@ export function resetAllMocks(): void {
   resetMapsMock();
   resetAiMock();
   resetAuthMock();
+  resetSeedFlag();
 }
 
 export type {

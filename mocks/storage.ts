@@ -671,6 +671,47 @@ export function getDriverAccount(
   return state.driverAccounts.get(profileId);
 }
 
+/**
+ * Test/seed-only helper: inserts a fully-formed PickupRequest row directly
+ * (bypasses the default `createdAt = now` stamp so seed data can backdate
+ * requests across the last 30 days). NOT part of the StorageService
+ * interface — never called from application code.
+ */
+export function seedPickupRequest(request: PickupRequest): void {
+  state.pickupRequests.set(request.id, request);
+}
+
+/**
+ * Test/seed-only helper: inserts an Office row directly. NOT part of the
+ * StorageService interface.
+ */
+export function seedOffice(office: Office): void {
+  state.offices.set(office.id, office);
+}
+
+/**
+ * Test/seed-only helper: inserts a Doctor row directly. NOT part of the
+ * StorageService interface.
+ */
+export function seedDoctor(doctor: Doctor): void {
+  state.doctors.set(doctor.id, doctor);
+}
+
+/**
+ * Test/seed-only helper: inserts a Driver row directly with a caller-
+ * supplied `profileId` (so it can align with an existing auth session
+ * like `user-driver`). Also populates the mock `driverAccounts` side
+ * map with the given email + `test1234` password so the driver can
+ * sign in via `authMock`. NOT part of the StorageService interface.
+ */
+export function seedDriver(driver: Driver, email: string): void {
+  state.drivers.set(driver.profileId, driver);
+  state.driverAccounts.set(driver.profileId, {
+    email,
+    password: MOCK_PASSWORD,
+  });
+}
+
 /** Test-only helper. */
 export function seedRoute(route: Route): void {
   state.routes.set(route.id, route);
