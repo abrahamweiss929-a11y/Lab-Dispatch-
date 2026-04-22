@@ -23,7 +23,7 @@ Things that require the user's accounts, API keys, or decisions before v1 can go
 **Needed for:** storage (offices, drivers, doctors, pickup requests), auth sessions, RLS policies
 **What to provide:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
 **Where it plugs in:** `interfaces/storage.ts` and `interfaces/auth.ts` (both real adapters throw referencing `NEXT_PUBLIC_SUPABASE_URL` — see `BLOCKERS.md` for the full triple)
-**Workaround in place:** `mocks/storage.ts` uses in-memory `Map`s for offices/drivers/doctors/pickup_requests; `mocks/auth.ts` uses three seeded accounts (`driver@test`, `dispatcher@test`, `admin@test`, shared password `test1234`).
+**Workaround in place:** `mocks/storage.ts` uses in-memory `Map`s for offices/drivers/doctors/pickup_requests; `mocks/auth.ts` uses three seeded accounts (`driver@test`, `dispatcher@test`, `admin@test`, shared password `test1234`). The `ld_session` cookie set by `lib/session.ts` is base64 JSON — explicitly mock-grade; real Supabase Auth will replace this with its own cookies (sb-* access/refresh tokens) when wiring lands, and `lib/session.ts` will be rewritten or removed.
 
 ### [mapbox] Mapbox access token
 **Type:** API key
