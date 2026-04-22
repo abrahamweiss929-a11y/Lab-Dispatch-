@@ -2,9 +2,14 @@ import { NotConfiguredError } from "@/lib/errors";
 import type {
   Doctor,
   Driver,
+  DriverLocation,
+  Message,
   Office,
   PickupRequest,
   PickupStatus,
+  Route,
+  RouteStatus,
+  Stop,
 } from "@/lib/types";
 
 export interface ListPickupRequestsFilter {
@@ -37,6 +42,44 @@ export interface DriverAccountSummary {
   email: string;
 }
 
+export interface ListRoutesFilter {
+  /** "YYYY-MM-DD" — matches `routes.route_date`. */
+  date?: string;
+  driverId?: string;
+  status?: RouteStatus;
+}
+
+export interface ListDriverLocationsFilter {
+  /** Default: 15. */
+  sinceMinutes?: number;
+}
+
+export interface ListMessagesFilter {
+  /**
+   * When true, returns messages whose `pickupRequestId` is unset (orphans
+   * / unknown senders) OR whose linked pickup request has `status =
+   * 'flagged'`. When undefined/false, returns all messages.
+   */
+  flagged?: boolean;
+}
+
+export interface NewRoute {
+  driverId: string;
+  /** "YYYY-MM-DD". */
+  routeDate: string;
+}
+
+export interface DispatcherDashboardCounts {
+  /** `pickup_requests.status = 'pending'` (any date). */
+  pendingRequests: number;
+  /** Stops on routes whose `route_date` equals the target date. */
+  todayStops: number;
+  /** `routes.status = 'active'` (any date). */
+  activeRoutes: number;
+  /** Messages that would pass the `flagged: true` filter. */
+  flaggedMessages: number;
+}
+
 export interface StorageService {
   listOffices(): Promise<Office[]>;
   listDrivers(): Promise<Driver[]>;
@@ -49,9 +92,15 @@ export interface StorageService {
   createDriver(input: NewDriver): Promise<Driver>;
   createDoctor(input: NewDoctor): Promise<Doctor>;
   createPickupRequest(input: NewPickupRequest): Promise<PickupRequest>;
+  /**
+   * Extends the base status transition with an optional `flaggedReason`
+   * that is written when present. When `status !== "flagged"`, any
+   * previously-stored `flaggedReason` is cleared.
+   */
   updatePickupRequestStatus(
     id: string,
     status: PickupStatus,
+    flaggedReason?: string,
   ): Promise<PickupRequest>;
 
   /** Returns null when the office does not exist. */
@@ -102,6 +151,105 @@ export interface StorageService {
    * the count of pickup requests with `status = "pending"`.
    */
   countAdminDashboard(): Promise<AdminDashboardCounts>;
+
+  // Routes ------------------------------------------------------------------
+
+  listRoutes(filter?: ListRoutesFilter): Promise<Route[]>;
+  getRoute(id: string): Promise<Route | null>;
+  /** Status defaults to `"pending"`. */
+  createRoute(input: NewRoute): Promise<Route>;
+  /**
+   * Transitions:
+   *   - pending → active: sets `startedAt = now` if unset.
+   *   - active → completed: sets `completedAt = now` if unset.
+   *   - anything → pending: clears `startedAt` AND `completedAt`.
+   * Throws `Error("route <id> not found")` on bad id.
+   */
+  updateRouteStatus(id: string, status: RouteStatus): Promise<Route>;
+
+  // Stops -------------------------------------------------------------------
+
+  /** Ordered by `position` ascending. */
+  listStops(routeId: string): Promise<Stop[]>;
+  /**
+   * Side effects:
+   *   1. Inserts a stop row.
+   *   2. Patches the pickup request's status to `"assigned"`.
+   * Position defaults to `max(existing positions on route) + 1` (starting
+   * at 1 for an empty route). With an explicit `position` that collides
+   * with an existing stop, throws `"stop at position N already exists"`
+   * (matches the SQL `unique (route_id, position)` invariant).
+   * Throws `"route <id> not found"` / `"pickup request <id> not found"`
+   * on bad ids, or `"pickup request already assigned"` when a stop
+   * already exists for this request anywhere.
+   */
+  assignRequestToRoute(
+    routeId: string,
+    pickupRequestId: string,
+    position?: number,
+  ): Promise<Stop>;
+  /**
+   * Side effects:
+   *   1. Deletes the stop row.
+   *   2. Re-numbers remaining stops on that route to be 1..N contiguous.
+   *   3. Flips the underlying pickup request back to `"pending"` and
+   *      clears any `flaggedReason`.
+   * Throws `"stop <id> not found"` on bad id.
+   */
+  removeStopFromRoute(stopId: string): Promise<void>;
+  /**
+   * Rewrites `position` = 1..N in the given order. Throws if:
+   *   - routeId is unknown.
+   *   - `orderedStopIds.length !== current stops count`.
+   *   - any id in `orderedStopIds` is missing from the route.
+   *   - any stop id belongs to a different route.
+   */
+  reorderStops(routeId: string, orderedStopIds: string[]): Promise<void>;
+
+  // Driver locations --------------------------------------------------------
+
+  /**
+   * Returns AT MOST one row per driver — the most recent location per
+   * driver whose `recordedAt` is within `sinceMinutes` of now (default
+   * 15). Sorted by `recordedAt` descending.
+   */
+  listDriverLocations(
+    filter?: ListDriverLocationsFilter,
+  ): Promise<DriverLocation[]>;
+
+  // Messages ----------------------------------------------------------------
+
+  /**
+   * When `filter.flagged === true`, returns messages whose
+   * `pickupRequestId` is unset OR points at a pickup request with
+   * `status = "flagged"`. When undefined/false, returns all messages.
+   * Sorted by `receivedAt` descending.
+   */
+  listMessages(filter?: ListMessagesFilter): Promise<Message[]>;
+  /**
+   * Creates a new pickup request seeded from the message:
+   *   - channel = message.channel
+   *   - officeId = undefined (dispatcher fills in later)
+   *   - sourceIdentifier = message.fromIdentifier
+   *   - rawMessage = message.body
+   *   - urgency = "routine" (default)
+   *   - status = "pending"
+   * Then sets `message.pickupRequestId = new request's id`. Returns the
+   * new request.
+   * Throws `"message <id> not found"` on bad id, or `"message already
+   * linked"` when `message.pickupRequestId` is already set.
+   */
+  createRequestFromMessage(messageId: string): Promise<PickupRequest>;
+
+  // Dispatcher dashboard ----------------------------------------------------
+
+  /**
+   * `dateIso` ("YYYY-MM-DD") filters `todayStops`. Defaults to UTC today
+   * when undefined.
+   */
+  countDispatcherDashboard(
+    dateIso?: string,
+  ): Promise<DispatcherDashboardCounts>;
 }
 
 function notConfigured(): never {
@@ -165,6 +313,42 @@ export function createRealStorageService(): StorageService {
       notConfigured();
     },
     async countAdminDashboard() {
+      notConfigured();
+    },
+    async listRoutes() {
+      notConfigured();
+    },
+    async getRoute() {
+      notConfigured();
+    },
+    async createRoute() {
+      notConfigured();
+    },
+    async updateRouteStatus() {
+      notConfigured();
+    },
+    async listStops() {
+      notConfigured();
+    },
+    async assignRequestToRoute() {
+      notConfigured();
+    },
+    async removeStopFromRoute() {
+      notConfigured();
+    },
+    async reorderStops() {
+      notConfigured();
+    },
+    async listDriverLocations() {
+      notConfigured();
+    },
+    async listMessages() {
+      notConfigured();
+    },
+    async createRequestFromMessage() {
+      notConfigured();
+    },
+    async countDispatcherDashboard() {
       notConfigured();
     },
   };

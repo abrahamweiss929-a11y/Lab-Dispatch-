@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { storageMock, resetStorageMock, getDriverAccount } from "./storage";
+import {
+  storageMock,
+  resetStorageMock,
+  getDriverAccount,
+  seedDriverLocation,
+  seedMessage,
+} from "./storage";
 import type { OfficeAddress } from "@/lib/types";
 
 const ADDRESS: OfficeAddress = {
@@ -271,6 +277,510 @@ describe("storageMock", () => {
       doctors: 3,
       offices: 2,
       pendingPickupRequests: 2,
+    });
+  });
+
+  describe("updatePickupRequestStatus (flaggedReason)", () => {
+    it("stores flaggedReason when transitioning to flagged", async () => {
+      const req = await storageMock.createPickupRequest({
+        officeId: "o1",
+        channel: "sms",
+        urgency: "routine",
+      });
+      const flagged = await storageMock.updatePickupRequestStatus(
+        req.id,
+        "flagged",
+        "missing samples",
+      );
+      expect(flagged.status).toBe("flagged");
+      expect(flagged.flaggedReason).toBe("missing samples");
+    });
+
+    it("clears flaggedReason when status transitions away from flagged", async () => {
+      const req = await storageMock.createPickupRequest({
+        officeId: "o1",
+        channel: "sms",
+        urgency: "routine",
+      });
+      await storageMock.updatePickupRequestStatus(
+        req.id,
+        "flagged",
+        "needs review",
+      );
+      const cleared = await storageMock.updatePickupRequestStatus(
+        req.id,
+        "completed",
+      );
+      expect(cleared.status).toBe("completed");
+      expect(cleared.flaggedReason).toBeUndefined();
+    });
+  });
+
+  describe("routes CRUD", () => {
+    it("createRoute returns a pending route", async () => {
+      const route = await storageMock.createRoute({
+        driverId: "driver-1",
+        routeDate: "2026-04-22",
+      });
+      expect(route.id).toBeTruthy();
+      expect(route.status).toBe("pending");
+      expect(route.routeDate).toBe("2026-04-22");
+    });
+
+    it("listRoutes filters by date / driverId / status", async () => {
+      const a = await storageMock.createRoute({
+        driverId: "d1",
+        routeDate: "2026-04-22",
+      });
+      const b = await storageMock.createRoute({
+        driverId: "d2",
+        routeDate: "2026-04-22",
+      });
+      const c = await storageMock.createRoute({
+        driverId: "d1",
+        routeDate: "2026-04-23",
+      });
+      await storageMock.updateRouteStatus(b.id, "active");
+
+      expect((await storageMock.listRoutes({})).map((r) => r.id).sort()).toEqual(
+        [a.id, b.id, c.id].sort(),
+      );
+      expect(
+        (await storageMock.listRoutes({ date: "2026-04-22" }))
+          .map((r) => r.id)
+          .sort(),
+      ).toEqual([a.id, b.id].sort());
+      expect(
+        (await storageMock.listRoutes({ driverId: "d1" }))
+          .map((r) => r.id)
+          .sort(),
+      ).toEqual([a.id, c.id].sort());
+      expect(
+        (await storageMock.listRoutes({ status: "active" })).map((r) => r.id),
+      ).toEqual([b.id]);
+    });
+
+    it("getRoute returns null for missing ids", async () => {
+      expect(await storageMock.getRoute("missing")).toBeNull();
+    });
+
+    it("updateRouteStatus transitions set and clear timestamps", async () => {
+      const route = await storageMock.createRoute({
+        driverId: "d1",
+        routeDate: "2026-04-22",
+      });
+      const started = await storageMock.updateRouteStatus(route.id, "active");
+      expect(started.startedAt).toBeTruthy();
+      const completed = await storageMock.updateRouteStatus(
+        route.id,
+        "completed",
+      );
+      expect(completed.completedAt).toBeTruthy();
+      expect(completed.startedAt).toBe(started.startedAt);
+      const reset = await storageMock.updateRouteStatus(route.id, "pending");
+      expect(reset.startedAt).toBeUndefined();
+      expect(reset.completedAt).toBeUndefined();
+    });
+
+    it("updateRouteStatus throws on missing id", async () => {
+      await expect(
+        storageMock.updateRouteStatus("missing", "active"),
+      ).rejects.toThrow(/not found/);
+    });
+  });
+
+  describe("stops", () => {
+    async function setupRouteAndRequest() {
+      const driver = await storageMock.createDriver({
+        email: "d@test",
+        fullName: "Driver",
+        active: true,
+      });
+      const route = await storageMock.createRoute({
+        driverId: driver.profileId,
+        routeDate: "2026-04-22",
+      });
+      const request = await storageMock.createPickupRequest({
+        officeId: "o1",
+        channel: "manual",
+        urgency: "routine",
+      });
+      return { route, request };
+    }
+
+    it("assignRequestToRoute appends a stop and flips the request to assigned", async () => {
+      const { route, request } = await setupRouteAndRequest();
+      const stop = await storageMock.assignRequestToRoute(route.id, request.id);
+      expect(stop.position).toBe(1);
+
+      const second = await storageMock.createPickupRequest({
+        officeId: "o1",
+        channel: "manual",
+        urgency: "routine",
+      });
+      const stop2 = await storageMock.assignRequestToRoute(route.id, second.id);
+      expect(stop2.position).toBe(2);
+
+      const reqAfter = (await storageMock.listPickupRequests()).find(
+        (r) => r.id === request.id,
+      );
+      expect(reqAfter?.status).toBe("assigned");
+    });
+
+    it("assignRequestToRoute throws with an explicit position that collides", async () => {
+      const { route, request } = await setupRouteAndRequest();
+      await storageMock.assignRequestToRoute(route.id, request.id);
+      const other = await storageMock.createPickupRequest({
+        officeId: "o1",
+        channel: "manual",
+        urgency: "routine",
+      });
+      await expect(
+        storageMock.assignRequestToRoute(route.id, other.id, 1),
+      ).rejects.toThrow(/position 1 already exists/);
+    });
+
+    it("assignRequestToRoute rejects missing route / request / already-assigned", async () => {
+      const { route, request } = await setupRouteAndRequest();
+      await expect(
+        storageMock.assignRequestToRoute("missing-route", request.id),
+      ).rejects.toThrow(/route missing-route not found/);
+      await expect(
+        storageMock.assignRequestToRoute(route.id, "missing-req"),
+      ).rejects.toThrow(/pickup request missing-req not found/);
+      await storageMock.assignRequestToRoute(route.id, request.id);
+      await expect(
+        storageMock.assignRequestToRoute(route.id, request.id),
+      ).rejects.toThrow(/already assigned/);
+    });
+
+    it("listStops returns positions in order, empty when no stops", async () => {
+      const { route, request } = await setupRouteAndRequest();
+      expect(await storageMock.listStops(route.id)).toHaveLength(0);
+      await storageMock.assignRequestToRoute(route.id, request.id);
+      const stops = await storageMock.listStops(route.id);
+      expect(stops).toHaveLength(1);
+      expect(stops[0]?.position).toBe(1);
+    });
+
+    it("removeStopFromRoute deletes, re-numbers, and reopens the pickup request", async () => {
+      const { route, request } = await setupRouteAndRequest();
+      const req2 = await storageMock.createPickupRequest({
+        officeId: "o1",
+        channel: "manual",
+        urgency: "routine",
+      });
+      const req3 = await storageMock.createPickupRequest({
+        officeId: "o1",
+        channel: "manual",
+        urgency: "routine",
+      });
+      const s1 = await storageMock.assignRequestToRoute(route.id, request.id);
+      await storageMock.assignRequestToRoute(route.id, req2.id);
+      await storageMock.assignRequestToRoute(route.id, req3.id);
+
+      await storageMock.removeStopFromRoute(s1.id);
+
+      const remaining = await storageMock.listStops(route.id);
+      expect(remaining).toHaveLength(2);
+      expect(remaining.map((s) => s.position)).toEqual([1, 2]);
+      const reopened = (await storageMock.listPickupRequests()).find(
+        (r) => r.id === request.id,
+      );
+      expect(reopened?.status).toBe("pending");
+      expect(reopened?.flaggedReason).toBeUndefined();
+    });
+
+    it("removeStopFromRoute throws on missing stop id", async () => {
+      await expect(
+        storageMock.removeStopFromRoute("missing"),
+      ).rejects.toThrow(/stop missing not found/);
+    });
+
+    it("reorderStops rewrites positions in the given order", async () => {
+      const { route, request } = await setupRouteAndRequest();
+      const r2 = await storageMock.createPickupRequest({
+        officeId: "o1",
+        channel: "manual",
+        urgency: "routine",
+      });
+      const r3 = await storageMock.createPickupRequest({
+        officeId: "o1",
+        channel: "manual",
+        urgency: "routine",
+      });
+      const s1 = await storageMock.assignRequestToRoute(route.id, request.id);
+      const s2 = await storageMock.assignRequestToRoute(route.id, r2.id);
+      const s3 = await storageMock.assignRequestToRoute(route.id, r3.id);
+
+      await storageMock.reorderStops(route.id, [s3.id, s1.id, s2.id]);
+
+      const ordered = await storageMock.listStops(route.id);
+      expect(ordered.map((s) => s.id)).toEqual([s3.id, s1.id, s2.id]);
+      expect(ordered.map((s) => s.position)).toEqual([1, 2, 3]);
+    });
+
+    it("reorderStops throws on length mismatch / missing ids / cross-route ids", async () => {
+      const { route, request } = await setupRouteAndRequest();
+      const s1 = await storageMock.assignRequestToRoute(route.id, request.id);
+
+      await expect(
+        storageMock.reorderStops(route.id, [s1.id, "extra"]),
+      ).rejects.toThrow(/length does not match/);
+
+      await expect(
+        storageMock.reorderStops(route.id, ["missing"]),
+      ).rejects.toThrow(/stop missing not found/);
+
+      const otherRoute = await storageMock.createRoute({
+        driverId: "d2",
+        routeDate: "2026-04-22",
+      });
+      const req2 = await storageMock.createPickupRequest({
+        officeId: "o1",
+        channel: "manual",
+        urgency: "routine",
+      });
+      const stopOther = await storageMock.assignRequestToRoute(
+        otherRoute.id,
+        req2.id,
+      );
+      await expect(
+        storageMock.reorderStops(route.id, [stopOther.id]),
+      ).rejects.toThrow(/does not belong to route/);
+    });
+
+    it("reorderStops throws when the route is unknown", async () => {
+      await expect(
+        storageMock.reorderStops("missing-route", []),
+      ).rejects.toThrow(/route missing-route not found/);
+    });
+  });
+
+  describe("listDriverLocations", () => {
+    it("returns at most one fresh row per driver, latest first", async () => {
+      const now = Date.now();
+      const iso = (offsetMs: number) =>
+        new Date(now + offsetMs).toISOString();
+      seedDriverLocation({
+        id: "1",
+        driverId: "d1",
+        lat: 1,
+        lng: 1,
+        recordedAt: iso(-10 * 60_000),
+      });
+      seedDriverLocation({
+        id: "2",
+        driverId: "d1",
+        lat: 2,
+        lng: 2,
+        recordedAt: iso(-5 * 60_000),
+      });
+      seedDriverLocation({
+        id: "3",
+        driverId: "d2",
+        lat: 3,
+        lng: 3,
+        recordedAt: iso(-2 * 60_000),
+      });
+      seedDriverLocation({
+        id: "4",
+        driverId: "d3",
+        lat: 4,
+        lng: 4,
+        recordedAt: iso(-60 * 60_000), // stale — outside 15-min window
+      });
+
+      const fresh = await storageMock.listDriverLocations();
+      expect(fresh.map((l) => l.id)).toEqual(["3", "2"]);
+    });
+
+    it("returns empty when no locations seeded", async () => {
+      expect(await storageMock.listDriverLocations()).toEqual([]);
+    });
+
+    it("respects sinceMinutes", async () => {
+      const now = Date.now();
+      seedDriverLocation({
+        id: "1",
+        driverId: "d1",
+        lat: 1,
+        lng: 1,
+        recordedAt: new Date(now - 30 * 60_000).toISOString(),
+      });
+      expect(await storageMock.listDriverLocations({ sinceMinutes: 60 }))
+        .toHaveLength(1);
+      expect(await storageMock.listDriverLocations({ sinceMinutes: 10 }))
+        .toHaveLength(0);
+    });
+  });
+
+  describe("listMessages", () => {
+    it("returns all when no filter, sorted by receivedAt desc", async () => {
+      seedMessage({
+        id: "m1",
+        channel: "sms",
+        fromIdentifier: "+1",
+        body: "a",
+        receivedAt: "2026-04-22T10:00:00Z",
+      });
+      seedMessage({
+        id: "m2",
+        channel: "sms",
+        fromIdentifier: "+2",
+        body: "b",
+        receivedAt: "2026-04-22T12:00:00Z",
+      });
+      const all = await storageMock.listMessages();
+      expect(all.map((m) => m.id)).toEqual(["m2", "m1"]);
+    });
+
+    it("flagged: true includes orphans and flagged-linked", async () => {
+      const linked = await storageMock.createPickupRequest({
+        officeId: "o1",
+        channel: "sms",
+        urgency: "routine",
+      });
+      await storageMock.updatePickupRequestStatus(
+        linked.id,
+        "flagged",
+        "review",
+      );
+      const ok = await storageMock.createPickupRequest({
+        officeId: "o1",
+        channel: "sms",
+        urgency: "routine",
+      });
+
+      seedMessage({
+        id: "orphan",
+        channel: "sms",
+        fromIdentifier: "+unknown",
+        body: "who",
+        receivedAt: "2026-04-22T10:00:00Z",
+      });
+      seedMessage({
+        id: "flagged-linked",
+        channel: "sms",
+        fromIdentifier: "+known",
+        body: "hey",
+        receivedAt: "2026-04-22T11:00:00Z",
+        pickupRequestId: linked.id,
+      });
+      seedMessage({
+        id: "clean-linked",
+        channel: "sms",
+        fromIdentifier: "+ok",
+        body: "hi",
+        receivedAt: "2026-04-22T12:00:00Z",
+        pickupRequestId: ok.id,
+      });
+
+      const flagged = await storageMock.listMessages({ flagged: true });
+      expect(flagged.map((m) => m.id).sort()).toEqual(
+        ["flagged-linked", "orphan"].sort(),
+      );
+    });
+  });
+
+  describe("createRequestFromMessage", () => {
+    it("creates a pending request with channel / sourceIdentifier / rawMessage", async () => {
+      seedMessage({
+        id: "m1",
+        channel: "email",
+        fromIdentifier: "foo@bar",
+        subject: "pickup please",
+        body: "body text",
+        receivedAt: "2026-04-22T10:00:00Z",
+      });
+      const req = await storageMock.createRequestFromMessage("m1");
+      expect(req.status).toBe("pending");
+      expect(req.channel).toBe("email");
+      expect(req.sourceIdentifier).toBe("foo@bar");
+      expect(req.rawMessage).toBe("body text");
+      expect(req.urgency).toBe("routine");
+
+      const messages = await storageMock.listMessages();
+      expect(messages[0]?.pickupRequestId).toBe(req.id);
+    });
+
+    it("throws on missing id", async () => {
+      await expect(
+        storageMock.createRequestFromMessage("missing"),
+      ).rejects.toThrow(/not found/);
+    });
+
+    it("throws when the message is already linked", async () => {
+      seedMessage({
+        id: "m1",
+        channel: "sms",
+        fromIdentifier: "+1",
+        body: "x",
+        receivedAt: "2026-04-22T10:00:00Z",
+        pickupRequestId: "already",
+      });
+      await expect(
+        storageMock.createRequestFromMessage("m1"),
+      ).rejects.toThrow(/already linked/);
+    });
+  });
+
+  describe("countDispatcherDashboard", () => {
+    it("sums correctly across mixed state", async () => {
+      // pending pickup request (any date)
+      await storageMock.createPickupRequest({
+        officeId: "o1",
+        channel: "manual",
+        urgency: "routine",
+      });
+      // completed request — excluded from pending
+      const completed = await storageMock.createPickupRequest({
+        officeId: "o1",
+        channel: "manual",
+        urgency: "routine",
+      });
+      await storageMock.updatePickupRequestStatus(completed.id, "completed");
+
+      // today-dated route (pending)
+      const driver = await storageMock.createDriver({
+        email: "d@test",
+        fullName: "D",
+        active: true,
+      });
+      const routeToday = await storageMock.createRoute({
+        driverId: driver.profileId,
+        routeDate: "2026-04-22",
+      });
+      const reqForStop = await storageMock.createPickupRequest({
+        officeId: "o1",
+        channel: "manual",
+        urgency: "routine",
+      });
+      await storageMock.assignRequestToRoute(routeToday.id, reqForStop.id);
+
+      // active route on another date
+      const routeOther = await storageMock.createRoute({
+        driverId: driver.profileId,
+        routeDate: "2026-04-23",
+      });
+      await storageMock.updateRouteStatus(routeOther.id, "active");
+
+      // orphan message → counts as flagged
+      seedMessage({
+        id: "orphan",
+        channel: "sms",
+        fromIdentifier: "+1",
+        body: "x",
+        receivedAt: "2026-04-22T10:00:00Z",
+      });
+
+      const counts = await storageMock.countDispatcherDashboard("2026-04-22");
+      expect(counts).toEqual({
+        pendingRequests: 1, // initial one is now the only remaining pending (reqForStop flipped to assigned)
+        todayStops: 1,
+        activeRoutes: 1,
+        flaggedMessages: 1,
+      });
     });
   });
 });

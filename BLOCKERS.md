@@ -23,14 +23,14 @@ Things that require the user's accounts, API keys, or decisions before v1 can go
 **Needed for:** storage (offices, drivers, doctors, pickup requests), auth sessions, RLS policies
 **What to provide:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
 **Where it plugs in:** `interfaces/storage.ts` and `interfaces/auth.ts` (both real adapters throw referencing `NEXT_PUBLIC_SUPABASE_URL` — see `BLOCKERS.md` for the full triple)
-**Workaround in place:** `mocks/storage.ts` uses in-memory `Map`s for offices/drivers/doctors/pickup_requests; `mocks/auth.ts` uses three seeded accounts (`driver@test`, `dispatcher@test`, `admin@test`, shared password `test1234`). The `ld_session` cookie set by `lib/session.ts` is base64 JSON — explicitly mock-grade; real Supabase Auth will replace this with its own cookies (sb-* access/refresh tokens) when wiring lands, and `lib/session.ts` will be rewritten or removed. Admin driver-create flow generates a UUID `profileId` in `mocks/storage.ts` and stores a mock-only email+password (`test1234`) in a side map; real adapter must call `supabase.auth.admin.createUser` + create matching `profiles` + `drivers` rows in a transaction.
+**Workaround in place:** `mocks/storage.ts` uses in-memory `Map`s for offices/drivers/doctors/pickup_requests; `mocks/auth.ts` uses three seeded accounts (`driver@test`, `dispatcher@test`, `admin@test`, shared password `test1234`). The `ld_session` cookie set by `lib/session.ts` is base64 JSON — explicitly mock-grade; real Supabase Auth will replace this with its own cookies (sb-* access/refresh tokens) when wiring lands, and `lib/session.ts` will be rewritten or removed. Admin driver-create flow generates a UUID `profileId` in `mocks/storage.ts` and stores a mock-only email+password (`test1234`) in a side map; real adapter must call `supabase.auth.admin.createUser` + create matching `profiles` + `drivers` rows in a transaction. Dispatcher UI reads `driver_locations` as a static snapshot; real Supabase Realtime subscription wires in a future feature.
 
 ### [mapbox] Mapbox access token
 **Type:** API key
-**Needed for:** geocoding office addresses, computing routes for the dispatcher, driver ETAs
+**Needed for:** geocoding office addresses, computing routes for the dispatcher, driver ETAs, rendering the dispatcher live map
 **What to provide:** `NEXT_PUBLIC_MAPBOX_TOKEN`
-**Where it plugs in:** `interfaces/maps.ts` (real adapter)
-**Workaround in place:** `mocks/maps.ts` — deterministic fake `geocode` (base `(40.0, -74.0)` + sum-of-char-codes offset), `routeFor` returns `stops.length * 1000 m` / `stops.length * 120 s` and a synthetic polyline, `etaFor` uses inline haversine distance × 60 sec/km.
+**Where it plugs in:** `interfaces/maps.ts` (real adapter); dispatcher map page (`app/dispatcher/map/page.tsx`) currently renders a table + callout explaining the deferral.
+**Workaround in place:** `mocks/maps.ts` — deterministic fake `geocode` (base `(40.0, -74.0)` + sum-of-char-codes offset), `routeFor` returns `stops.length * 1000 m` / `stops.length * 120 s` and a synthetic polyline, `etaFor` uses inline haversine distance × 60 sec/km. Dispatcher map page lists driver rows instead of rendering a real map; unblocks when `MAPBOX_TOKEN` is set and the Mapbox GL JS client is integrated.
 
 ### [anthropic] Anthropic API key
 **Type:** API key
