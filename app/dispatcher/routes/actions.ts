@@ -4,9 +4,36 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getServices } from "@/interfaces";
 import type { AdminFormState } from "@/lib/admin-form";
+import { canDispatcherEditRoute } from "@/lib/permissions";
+import { convertRequestToStop } from "@/lib/request-to-stop";
 import { requireDispatcherSession } from "@/lib/require-dispatcher";
+import type { SessionCookieValue } from "@/lib/session";
 
 const ROUTE_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Fetches the route and throws when the caller may not edit it under
+ * `canDispatcherEditRoute`. Returns silently (without throwing) when the
+ * route is missing — the caller matches existing "silent bail on bad
+ * routeId" behavior elsewhere in this file. The auth gate
+ * (`requireDispatcherSession`) already ran before this helper is called;
+ * this helper layers the past-date guard on top.
+ */
+async function guardCanEditRoute(
+  routeId: string,
+  session: SessionCookieValue,
+): Promise<void> {
+  const route = await getServices().storage.getRoute(routeId);
+  if (!route) return;
+  if (
+    !canDispatcherEditRoute({
+      role: session.role,
+      routeDate: route.routeDate,
+    })
+  ) {
+    throw new Error("cannot edit past route");
+  }
+}
 
 export async function createRouteAction(
   _prev: AdminFormState,
@@ -54,12 +81,13 @@ export async function addStopToRouteAction(
   routeId: string,
   formData: FormData,
 ): Promise<void> {
-  requireDispatcherSession();
+  const session = requireDispatcherSession();
   const pickupRequestId = String(formData.get("pickupRequestId") ?? "").trim();
   if (pickupRequestId.length === 0) {
     return;
   }
-  await getServices().storage.assignRequestToRoute(routeId, pickupRequestId);
+  await guardCanEditRoute(routeId, session);
+  await convertRequestToStop({ routeId, requestId: pickupRequestId });
   revalidatePath(`/dispatcher/routes/${routeId}`);
   revalidatePath("/dispatcher/requests");
 }
@@ -68,7 +96,8 @@ export async function removeStopAction(
   routeId: string,
   stopId: string,
 ): Promise<void> {
-  requireDispatcherSession();
+  const session = requireDispatcherSession();
+  await guardCanEditRoute(routeId, session);
   await getServices().storage.removeStopFromRoute(stopId);
   revalidatePath(`/dispatcher/routes/${routeId}`);
   revalidatePath("/dispatcher/requests");
@@ -99,7 +128,8 @@ export async function moveStopUpAction(
   routeId: string,
   stopId: string,
 ): Promise<void> {
-  requireDispatcherSession();
+  const session = requireDispatcherSession();
+  await guardCanEditRoute(routeId, session);
   await swapAndReorder(routeId, stopId, "up");
   revalidatePath(`/dispatcher/routes/${routeId}`);
 }
@@ -108,27 +138,31 @@ export async function moveStopDownAction(
   routeId: string,
   stopId: string,
 ): Promise<void> {
-  requireDispatcherSession();
+  const session = requireDispatcherSession();
+  await guardCanEditRoute(routeId, session);
   await swapAndReorder(routeId, stopId, "down");
   revalidatePath(`/dispatcher/routes/${routeId}`);
 }
 
 export async function startRouteAction(routeId: string): Promise<void> {
-  requireDispatcherSession();
+  const session = requireDispatcherSession();
+  await guardCanEditRoute(routeId, session);
   await getServices().storage.updateRouteStatus(routeId, "active");
   revalidatePath(`/dispatcher/routes/${routeId}`);
   revalidatePath("/dispatcher/routes");
 }
 
 export async function completeRouteAction(routeId: string): Promise<void> {
-  requireDispatcherSession();
+  const session = requireDispatcherSession();
+  await guardCanEditRoute(routeId, session);
   await getServices().storage.updateRouteStatus(routeId, "completed");
   revalidatePath(`/dispatcher/routes/${routeId}`);
   revalidatePath("/dispatcher/routes");
 }
 
 export async function resetRouteAction(routeId: string): Promise<void> {
-  requireDispatcherSession();
+  const session = requireDispatcherSession();
+  await guardCanEditRoute(routeId, session);
   await getServices().storage.updateRouteStatus(routeId, "pending");
   revalidatePath(`/dispatcher/routes/${routeId}`);
   revalidatePath("/dispatcher/routes");

@@ -489,6 +489,17 @@ describe("storageMock", () => {
       expect(reqAfter?.status).toBe("assigned");
     });
 
+    it("assignRequestToRoute initializes notified10min to false", async () => {
+      const { route, request } = await setupRouteAndRequest();
+      const stop = await storageMock.assignRequestToRoute(
+        route.id,
+        request.id,
+      );
+      expect(stop.notified10min).toBe(false);
+      const refreshed = await storageMock.getStop(stop.id);
+      expect(refreshed?.notified10min).toBe(false);
+    });
+
     it("assignRequestToRoute throws with an explicit position that collides", async () => {
       const { route, request } = await setupRouteAndRequest();
       await storageMock.assignRequestToRoute(route.id, request.id);
@@ -701,6 +712,60 @@ describe("storageMock", () => {
       await expect(storageMock.markStopPickedUp(stop.id)).rejects.toThrow(
         /already picked up/,
       );
+    });
+
+    it("markStopNotified10min flips the flag on the happy path", async () => {
+      const { stop } = await seedStopRow();
+      expect(stop.notified10min).toBe(false);
+      const updated = await storageMock.markStopNotified10min(stop.id);
+      expect(updated.notified10min).toBe(true);
+      const refreshed = await storageMock.getStop(stop.id);
+      expect(refreshed?.notified10min).toBe(true);
+    });
+
+    it("markStopNotified10min is idempotent when already notified", async () => {
+      const { stop } = await seedStopRow();
+      await storageMock.markStopNotified10min(stop.id);
+      const again = await storageMock.markStopNotified10min(stop.id);
+      expect(again.notified10min).toBe(true);
+      expect(again.id).toBe(stop.id);
+    });
+
+    it("markStopNotified10min throws on missing id", async () => {
+      await expect(
+        storageMock.markStopNotified10min("missing"),
+      ).rejects.toThrow(/stop missing not found/);
+    });
+
+    it("updateStopEta overwrites etaAt on the happy path", async () => {
+      const { stop } = await seedStopRow();
+      const when = "2026-04-22T15:30:00.000Z";
+      const updated = await storageMock.updateStopEta(stop.id, when);
+      expect(updated.etaAt).toBe(when);
+      const refreshed = await storageMock.getStop(stop.id);
+      expect(refreshed?.etaAt).toBe(when);
+    });
+
+    it("updateStopEta throws on missing id", async () => {
+      await expect(
+        storageMock.updateStopEta("missing", "2026-04-22T15:30:00.000Z"),
+      ).rejects.toThrow(/stop missing not found/);
+    });
+  });
+
+  describe("getPickupRequest", () => {
+    it("returns the seeded request", async () => {
+      const created = await storageMock.createPickupRequest({
+        officeId: "o1",
+        channel: "manual",
+        urgency: "routine",
+      });
+      const found = await storageMock.getPickupRequest(created.id);
+      expect(found?.id).toBe(created.id);
+    });
+
+    it("returns null on unknown id", async () => {
+      expect(await storageMock.getPickupRequest("missing")).toBeNull();
     });
   });
 

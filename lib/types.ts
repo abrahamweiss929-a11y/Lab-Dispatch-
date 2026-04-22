@@ -87,6 +87,14 @@ export interface Stop {
   etaAt?: string;
   arrivedAt?: string;
   pickedUpAt?: string;
+  /**
+   * True once the 10-minute heads-up SMS has been sent to the office for
+   * this stop. Set by `lib/heads-up.ts` via `storage.markStopNotified10min`.
+   * Defaults to `false` on creation. Idempotent invariant: once flipped to
+   * `true`, the flag is never reset during normal operation, so the
+   * heads-up is sent at most once per stop.
+   */
+  notified10min: boolean;
   createdAt: string;
 }
 

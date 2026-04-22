@@ -85,19 +85,19 @@ describe("dispatcher/routes server actions", () => {
       await expect(
         createRouteAction(
           INITIAL_ADMIN_FORM_STATE,
-          fd({ driverId: driver.profileId, routeDate: "2026-04-22" }),
+          fd({ driverId: driver.profileId, routeDate: "2099-12-31" }),
         ),
       ).rejects.toThrow(/REDIRECT:\/dispatcher\/routes\//);
       const routes = await storageMock.listRoutes({});
       expect(routes).toHaveLength(1);
       expect(routes[0]?.status).toBe("pending");
-      expect(routes[0]?.routeDate).toBe("2026-04-22");
+      expect(routes[0]?.routeDate).toBe("2099-12-31");
     });
 
     it("rejects missing driverId", async () => {
       const state = await createRouteAction(
         INITIAL_ADMIN_FORM_STATE,
-        fd({ driverId: "", routeDate: "2026-04-22" }),
+        fd({ driverId: "", routeDate: "2099-12-31" }),
       );
       expect(state.fieldErrors.driverId).toBeTruthy();
     });
@@ -116,7 +116,7 @@ describe("dispatcher/routes server actions", () => {
       await storageMock.updateDriver(driver.profileId, { active: false });
       const state = await createRouteAction(
         INITIAL_ADMIN_FORM_STATE,
-        fd({ driverId: driver.profileId, routeDate: "2026-04-22" }),
+        fd({ driverId: driver.profileId, routeDate: "2099-12-31" }),
       );
       expect(state.fieldErrors.driverId).toBe("Driver is inactive");
     });
@@ -129,7 +129,7 @@ describe("dispatcher/routes server actions", () => {
       await expect(
         createRouteAction(
           INITIAL_ADMIN_FORM_STATE,
-          fd({ driverId: "x", routeDate: "2026-04-22" }),
+          fd({ driverId: "x", routeDate: "2099-12-31" }),
         ),
       ).rejects.toThrow(/REDIRECT:\/login/);
       expect(spy).not.toHaveBeenCalled();
@@ -143,7 +143,7 @@ describe("dispatcher/routes server actions", () => {
       const driver = await seedActiveDriver();
       const route = await storageMock.createRoute({
         driverId: driver.profileId,
-        routeDate: "2026-04-22",
+        routeDate: "2099-12-31",
       });
       const req = await storageMock.createPickupRequest({
         officeId: office.id,
@@ -159,12 +159,135 @@ describe("dispatcher/routes server actions", () => {
       expect(stops[0]?.pickupRequestId).toBe(req.id);
     });
 
+    it("populates etaAt when the preceding stop and both offices have coords", async () => {
+      const officeA = await storageMock.createOffice({
+        name: "Alpha",
+        slug: "alpha",
+        pickupUrlToken: "tok-alpha",
+        address: ADDRESS,
+        active: true,
+        lat: 40.0,
+        lng: -74.0,
+      });
+      const officeB = await storageMock.createOffice({
+        name: "Bravo",
+        slug: "bravo",
+        pickupUrlToken: "tok-bravo",
+        address: ADDRESS,
+        active: true,
+        lat: 40.5,
+        lng: -74.5,
+      });
+      const driver = await seedActiveDriver();
+      const route = await storageMock.createRoute({
+        driverId: driver.profileId,
+        routeDate: "2099-12-31",
+      });
+      const reqA = await storageMock.createPickupRequest({
+        officeId: officeA.id,
+        channel: "manual",
+        urgency: "routine",
+      });
+      await storageMock.assignRequestToRoute(route.id, reqA.id);
+      const reqB = await storageMock.createPickupRequest({
+        officeId: officeB.id,
+        channel: "manual",
+        urgency: "routine",
+      });
+
+      await addStopToRouteAction(route.id, fd({ pickupRequestId: reqB.id }));
+
+      const stops = await storageMock.listStops(route.id);
+      expect(stops).toHaveLength(2);
+      expect(stops[1]?.etaAt).toBeTruthy();
+    });
+
+    it("leaves etaAt undefined at position 1", async () => {
+      const office = await seedOffice();
+      const driver = await seedActiveDriver();
+      const route = await storageMock.createRoute({
+        driverId: driver.profileId,
+        routeDate: "2099-12-31",
+      });
+      const req = await storageMock.createPickupRequest({
+        officeId: office.id,
+        channel: "manual",
+        urgency: "routine",
+      });
+
+      await addStopToRouteAction(route.id, fd({ pickupRequestId: req.id }));
+
+      const stops = await storageMock.listStops(route.id);
+      expect(stops[0]?.etaAt).toBeUndefined();
+    });
+
+    it("leaves etaAt undefined when target office lacks coords", async () => {
+      const officeA = await storageMock.createOffice({
+        name: "Alpha",
+        slug: "alpha",
+        pickupUrlToken: "tok-alpha",
+        address: ADDRESS,
+        active: true,
+        lat: 40.0,
+        lng: -74.0,
+      });
+      const officeB = await storageMock.createOffice({
+        name: "Bravo",
+        slug: "bravo",
+        pickupUrlToken: "tok-bravo",
+        address: ADDRESS,
+        active: true,
+      });
+      const driver = await seedActiveDriver();
+      const route = await storageMock.createRoute({
+        driverId: driver.profileId,
+        routeDate: "2099-12-31",
+      });
+      const reqA = await storageMock.createPickupRequest({
+        officeId: officeA.id,
+        channel: "manual",
+        urgency: "routine",
+      });
+      await storageMock.assignRequestToRoute(route.id, reqA.id);
+      const reqB = await storageMock.createPickupRequest({
+        officeId: officeB.id,
+        channel: "manual",
+        urgency: "routine",
+      });
+
+      await addStopToRouteAction(route.id, fd({ pickupRequestId: reqB.id }));
+
+      const stops = await storageMock.listStops(route.id);
+      expect(stops[1]?.etaAt).toBeUndefined();
+    });
+
+    it("throws when editing a route dated in the past", async () => {
+      const office = await seedOffice();
+      const driver = await seedActiveDriver();
+      const route = await storageMock.createRoute({
+        driverId: driver.profileId,
+        routeDate: "1970-01-01",
+      });
+      const req = await storageMock.createPickupRequest({
+        officeId: office.id,
+        channel: "manual",
+        urgency: "routine",
+      });
+      const spy = vi.spyOn(storageMock, "assignRequestToRoute");
+
+      await expect(
+        addStopToRouteAction(route.id, fd({ pickupRequestId: req.id })),
+      ).rejects.toThrow(/cannot edit past route/);
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
     it("surfaces the storage error when the request is already assigned", async () => {
       const office = await seedOffice();
       const driver = await seedActiveDriver();
       const route = await storageMock.createRoute({
         driverId: driver.profileId,
-        routeDate: "2026-04-22",
+        routeDate: "2099-12-31",
       });
       const req = await storageMock.createPickupRequest({
         officeId: office.id,
@@ -197,7 +320,7 @@ describe("dispatcher/routes server actions", () => {
       const driver = await seedActiveDriver();
       const route = await storageMock.createRoute({
         driverId: driver.profileId,
-        routeDate: "2026-04-22",
+        routeDate: "2099-12-31",
       });
       const req = await storageMock.createPickupRequest({
         officeId: office.id,
@@ -225,6 +348,20 @@ describe("dispatcher/routes server actions", () => {
       expect(spy).not.toHaveBeenCalled();
       spy.mockRestore();
     });
+
+    it("throws when the route is dated in the past", async () => {
+      const driver = await seedActiveDriver();
+      const route = await storageMock.createRoute({
+        driverId: driver.profileId,
+        routeDate: "1970-01-01",
+      });
+      const spy = vi.spyOn(storageMock, "removeStopFromRoute");
+      await expect(removeStopAction(route.id, "s")).rejects.toThrow(
+        /cannot edit past route/,
+      );
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
   });
 
   describe("moveStopUpAction / moveStopDownAction", () => {
@@ -233,7 +370,7 @@ describe("dispatcher/routes server actions", () => {
       const driver = await seedActiveDriver();
       const route = await storageMock.createRoute({
         driverId: driver.profileId,
-        routeDate: "2026-04-22",
+        routeDate: "2099-12-31",
       });
       const r1 = await storageMock.createPickupRequest({
         officeId: office.id,
@@ -323,6 +460,34 @@ describe("dispatcher/routes server actions", () => {
       expect(spy).not.toHaveBeenCalled();
       spy.mockRestore();
     });
+
+    it("moveStopUpAction throws when the route is dated in the past", async () => {
+      const driver = await seedActiveDriver();
+      const route = await storageMock.createRoute({
+        driverId: driver.profileId,
+        routeDate: "1970-01-01",
+      });
+      const spy = vi.spyOn(storageMock, "reorderStops");
+      await expect(moveStopUpAction(route.id, "s")).rejects.toThrow(
+        /cannot edit past route/,
+      );
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it("moveStopDownAction throws when the route is dated in the past", async () => {
+      const driver = await seedActiveDriver();
+      const route = await storageMock.createRoute({
+        driverId: driver.profileId,
+        routeDate: "1970-01-01",
+      });
+      const spy = vi.spyOn(storageMock, "reorderStops");
+      await expect(moveStopDownAction(route.id, "s")).rejects.toThrow(
+        /cannot edit past route/,
+      );
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
   });
 
   describe("route status transitions", () => {
@@ -330,7 +495,7 @@ describe("dispatcher/routes server actions", () => {
       const driver = await seedActiveDriver();
       return storageMock.createRoute({
         driverId: driver.profileId,
-        routeDate: "2026-04-22",
+        routeDate: "2099-12-31",
       });
     }
 
@@ -390,6 +555,48 @@ describe("dispatcher/routes server actions", () => {
       });
       const spy = vi.spyOn(storageMock, "updateRouteStatus");
       await expect(resetRouteAction("r")).rejects.toThrow(/REDIRECT:\/login/);
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it("startRouteAction throws when the route is dated in the past", async () => {
+      const driver = await seedActiveDriver();
+      const route = await storageMock.createRoute({
+        driverId: driver.profileId,
+        routeDate: "1970-01-01",
+      });
+      const spy = vi.spyOn(storageMock, "updateRouteStatus");
+      await expect(startRouteAction(route.id)).rejects.toThrow(
+        /cannot edit past route/,
+      );
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it("completeRouteAction throws when the route is dated in the past", async () => {
+      const driver = await seedActiveDriver();
+      const route = await storageMock.createRoute({
+        driverId: driver.profileId,
+        routeDate: "1970-01-01",
+      });
+      const spy = vi.spyOn(storageMock, "updateRouteStatus");
+      await expect(completeRouteAction(route.id)).rejects.toThrow(
+        /cannot edit past route/,
+      );
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it("resetRouteAction throws when the route is dated in the past", async () => {
+      const driver = await seedActiveDriver();
+      const route = await storageMock.createRoute({
+        driverId: driver.profileId,
+        routeDate: "1970-01-01",
+      });
+      const spy = vi.spyOn(storageMock, "updateRouteStatus");
+      await expect(resetRouteAction(route.id)).rejects.toThrow(
+        /cannot edit past route/,
+      );
       expect(spy).not.toHaveBeenCalled();
       spy.mockRestore();
     });

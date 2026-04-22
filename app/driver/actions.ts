@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getServices } from "@/interfaces";
+import { maybeNotifyOffice } from "@/lib/heads-up";
 import { requireDriverSession } from "@/lib/require-driver";
 import { getTodaysRouteForDriver } from "@/lib/today-route";
 
@@ -83,4 +84,19 @@ export async function recordLocationAction(
     lat: input.lat,
     lng: input.lng,
   });
+
+  // Best-effort heads-up SMS. Wrapped in try/catch so a heads-up failure
+  // never fails the GPS ping ingestion — drivers' location updates are
+  // load-bearing for the dispatcher map.
+  try {
+    await maybeNotifyOffice({
+      driverId: session.userId,
+      routeId: route.id,
+      lat: input.lat,
+      lng: input.lng,
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("recordLocationAction: maybeNotifyOffice threw", err);
+  }
 }

@@ -108,6 +108,7 @@ create table if not exists public.stops (
   eta_at timestamptz,
   arrived_at timestamptz,
   picked_up_at timestamptz,
+  notified_10min boolean not null default false,
   created_at timestamptz not null default now(),
   unique (route_id, pickup_request_id),
   unique (route_id, position)

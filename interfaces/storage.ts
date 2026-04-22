@@ -259,6 +259,32 @@ export interface StorageService {
    */
   markStopPickedUp(stopId: string): Promise<Stop>;
 
+  /**
+   * Sets `notified10min = true` when currently false and returns the
+   * updated Stop. Idempotent — calling this when the flag is already true
+   * returns the existing Stop without modification (does NOT throw). The
+   * heads-up module also checks the flag before calling so idempotency is
+   * belt-and-suspenders; retry-safe for future real-adapter callers.
+   * Throws `"stop <id> not found"` on bad id.
+   */
+  markStopNotified10min(stopId: string): Promise<Stop>;
+
+  /**
+   * Overwrites `etaAt` with the given ISO8601 string. No validation of the
+   * timestamp format (caller's job). Throws `"stop <id> not found"` on
+   * bad id.
+   */
+  updateStopEta(stopId: string, etaAtIso: string): Promise<Stop>;
+
+  // Pickup request lookups -------------------------------------------------
+
+  /**
+   * Returns a single pickup request by id, or null when the id is not
+   * known. Cheaper than `listPickupRequests().find(...)` for callers (like
+   * the heads-up module) that only need a single row.
+   */
+  getPickupRequest(id: string): Promise<PickupRequest | null>;
+
   // Driver locations --------------------------------------------------------
 
   /**
@@ -437,6 +463,15 @@ export function createRealStorageService(): StorageService {
       notConfigured();
     },
     async markStopPickedUp() {
+      notConfigured();
+    },
+    async markStopNotified10min() {
+      notConfigured();
+    },
+    async updateStopEta() {
+      notConfigured();
+    },
+    async getPickupRequest() {
       notConfigured();
     },
     async listDriverLocations() {

@@ -95,4 +95,10 @@ describe("supabase/schema.sql", () => {
       /constraint\s+routes_driver_id_route_date_key\s+unique\s*\(\s*driver_id\s*,\s*route_date\s*\)/i,
     );
   });
+
+  it("declares stops.notified_10min boolean not null default false", () => {
+    expect(sql).toMatch(
+      /notified_10min\s+boolean\s+not\s+null\s+default\s+false/i,
+    );
+  });
 });

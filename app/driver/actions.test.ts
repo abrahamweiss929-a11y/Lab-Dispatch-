@@ -34,6 +34,32 @@ import {
   startRouteAction,
 } from "./actions";
 import { resetStorageMock, storageMock } from "@/mocks/storage";
+import { getSent, resetSmsMock, smsMock } from "@/mocks/sms";
+import { HEADS_UP_COPY } from "@/lib/heads-up";
+import type { Office, OfficeAddress } from "@/lib/types";
+
+const ADDRESS: OfficeAddress = {
+  street: "100 Main St",
+  city: "Princeton",
+  state: "NJ",
+  zip: "08540",
+};
+
+async function seedOfficeWithCoords(
+  name: string,
+  opts: { lat?: number; lng?: number; phone?: string } = {},
+): Promise<Office> {
+  return storageMock.createOffice({
+    name,
+    slug: name.toLowerCase().replace(/\s+/g, "-"),
+    pickupUrlToken: `tok-${name.toLowerCase().replace(/\s+/g, "-")}`,
+    address: ADDRESS,
+    active: true,
+    lat: opts.lat,
+    lng: opts.lng,
+    phone: opts.phone,
+  });
+}
 
 async function seedRouteForDriver(driverId: string, routeDate = "2026-04-22") {
   return storageMock.createRoute({ driverId, routeDate });
@@ -232,5 +258,135 @@ describe("driver server actions — recordLocationAction", () => {
     expect(spy).not.toHaveBeenCalled();
     expect(getTodaysRouteForDriverMock).not.toHaveBeenCalled();
     spy.mockRestore();
+  });
+});
+
+describe("driver server actions — recordLocationAction heads-up integration", () => {
+  beforeEach(() => {
+    resetStorageMock();
+    resetSmsMock();
+    revalidatePathMock.mockClear();
+    redirectMock.mockClear();
+    requireDriverSessionMock.mockReset();
+    requireDriverSessionMock.mockReturnValue({
+      userId: "driver-1",
+      role: "driver",
+    });
+    getTodaysRouteForDriverMock.mockReset();
+  });
+
+  async function seedActiveRouteWithOfficeStop(office: Office) {
+    const route = await storageMock.createRoute({
+      driverId: "driver-1",
+      routeDate: "2026-04-22",
+    });
+    const req = await storageMock.createPickupRequest({
+      officeId: office.id,
+      channel: "manual",
+      urgency: "routine",
+    });
+    const stop = await storageMock.assignRequestToRoute(route.id, req.id);
+    await storageMock.updateRouteStatus(route.id, "active");
+    getTodaysRouteForDriverMock.mockResolvedValue({
+      ...route,
+      status: "active",
+    });
+    return { route, stop };
+  }
+
+  it("sends the heads-up SMS when the driver is near the next stop's office", async () => {
+    const office = await seedOfficeWithCoords("Acme", {
+      lat: 40.0,
+      lng: -74.0,
+      phone: "+15551234567",
+    });
+    const { stop } = await seedActiveRouteWithOfficeStop(office);
+
+    await recordLocationAction({
+      lat: office.lat as number,
+      lng: office.lng as number,
+    });
+
+    const sent = getSent();
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.to).toBe("+15551234567");
+    expect(sent[0]?.body).toBe(HEADS_UP_COPY);
+    const refreshed = await storageMock.getStop(stop.id);
+    expect(refreshed?.notified10min).toBe(true);
+  });
+
+  it("does not send the SMS when the driver is far from the next stop", async () => {
+    const office = await seedOfficeWithCoords("Far", {
+      lat: 40.0,
+      lng: -74.0,
+      phone: "+15551234567",
+    });
+    const { stop } = await seedActiveRouteWithOfficeStop(office);
+
+    await recordLocationAction({ lat: 35.0, lng: -80.0 });
+
+    expect(getSent()).toHaveLength(0);
+    const refreshed = await storageMock.getStop(stop.id);
+    expect(refreshed?.notified10min).toBe(false);
+  });
+
+  it("does not re-send when notified10min is already true", async () => {
+    const office = await seedOfficeWithCoords("Acme", {
+      lat: 40.0,
+      lng: -74.0,
+      phone: "+15551234567",
+    });
+    const { stop } = await seedActiveRouteWithOfficeStop(office);
+    await storageMock.markStopNotified10min(stop.id);
+
+    await recordLocationAction({
+      lat: office.lat as number,
+      lng: office.lng as number,
+    });
+
+    expect(getSent()).toHaveLength(0);
+  });
+
+  it("does not send the SMS when the office has no phone (location still persisted)", async () => {
+    const office = await seedOfficeWithCoords("NoPhone", {
+      lat: 40.0,
+      lng: -74.0,
+    });
+    await seedActiveRouteWithOfficeStop(office);
+
+    await recordLocationAction({
+      lat: office.lat as number,
+      lng: office.lng as number,
+    });
+
+    expect(getSent()).toHaveLength(0);
+    const locs = await storageMock.listDriverLocations({ sinceMinutes: 5 });
+    expect(locs.map((l) => l.driverId)).toContain("driver-1");
+  });
+
+  it("still persists the location when sms.sendSms rejects", async () => {
+    const office = await seedOfficeWithCoords("Acme", {
+      lat: 40.0,
+      lng: -74.0,
+      phone: "+15551234567",
+    });
+    await seedActiveRouteWithOfficeStop(office);
+    vi.spyOn(smsMock, "sendSms").mockRejectedValueOnce(new Error("twilio 500"));
+    // Silence the expected console.error to keep test output clean; the
+    // action explicitly console.errors when maybeNotifyOffice throws.
+    const errSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    await expect(
+      recordLocationAction({
+        lat: office.lat as number,
+        lng: office.lng as number,
+      }),
+    ).resolves.toBeUndefined();
+
+    const locs = await storageMock.listDriverLocations({ sinceMinutes: 5 });
+    expect(locs.map((l) => l.driverId)).toContain("driver-1");
+    errSpy.mockRestore();
   });
 });

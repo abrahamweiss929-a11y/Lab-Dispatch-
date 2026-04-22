@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { UserRole } from "@/lib/types";
 
 const revalidatePathMock = vi.fn();
-const requireDriverSessionMock = vi.fn(() => ({
+const requireDriverSessionMock = vi.fn<
+  [],
+  { userId: string; role: UserRole }
+>(() => ({
   userId: "driver-test",
-  role: "driver" as const,
+  role: "driver",
 }));
 
 vi.mock("next/cache", () => ({
@@ -141,5 +145,64 @@ describe("driver/route server actions — pickupStopAction", () => {
     await expect(pickupStopAction("s")).rejects.toThrow(/REDIRECT:\/login/);
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
+  });
+
+  it("auto-completes the route when the last pending stop is picked up", async () => {
+    const { route, stop } = await seedActiveRouteWithStop("driver-1", "active");
+    await storageMock.markStopArrived(stop.id);
+
+    await pickupStopAction(stop.id);
+
+    const after = await storageMock.getRoute(route.id);
+    expect(after?.status).toBe("completed");
+    expect(after?.completedAt).toBeTruthy();
+  });
+
+  it("does not complete the route when other stops remain pending", async () => {
+    const { route, stop } = await seedActiveRouteWithStop("driver-1", "active");
+    // Add a second stop so the route is multi-stop.
+    const req2 = await storageMock.createPickupRequest({
+      officeId: "o1",
+      channel: "manual",
+      urgency: "routine",
+    });
+    await storageMock.assignRequestToRoute(route.id, req2.id);
+    await storageMock.markStopArrived(stop.id);
+
+    await pickupStopAction(stop.id);
+
+    const after = await storageMock.getRoute(route.id);
+    expect(after?.status).toBe("active");
+    expect(after?.completedAt).toBeUndefined();
+  });
+
+  it("propagates markStopPickedUp errors and does not attempt completion", async () => {
+    const { route, stop } = await seedActiveRouteWithStop("driver-1", "active");
+    await storageMock.markStopArrived(stop.id);
+    await storageMock.markStopPickedUp(stop.id);
+    // Now the stop is already picked up — server action should surface
+    // the error and NOT try to flip the route status again.
+    const updateRouteStatusSpy = vi.spyOn(storageMock, "updateRouteStatus");
+    await expect(pickupStopAction(stop.id)).rejects.toThrow(
+      /already picked up/,
+    );
+    expect(updateRouteStatusSpy).not.toHaveBeenCalled();
+    // Route should remain active; nothing flipped.
+    const after = await storageMock.getRoute(route.id);
+    expect(after?.status).toBe("active");
+    updateRouteStatusSpy.mockRestore();
+  });
+
+  it("rejects an admin session attempting to pickup on behalf of a driver", async () => {
+    const { stop } = await seedActiveRouteWithStop("driver-1", "active");
+    await storageMock.markStopArrived(stop.id);
+    requireDriverSessionMock.mockReturnValueOnce({
+      userId: "admin-1",
+      role: "admin",
+    });
+    const pickupSpy = vi.spyOn(storageMock, "markStopPickedUp");
+    await expect(pickupStopAction(stop.id)).rejects.toThrow(/not your stop/);
+    expect(pickupSpy).not.toHaveBeenCalled();
+    pickupSpy.mockRestore();
   });
 });

@@ -372,6 +372,7 @@ export const storageMock: StorageService = {
       routeId,
       pickupRequestId,
       position: nextPosition,
+      notified10min: false,
       createdAt: nowIso(),
     };
     state.stops.set(id, stop);
@@ -472,6 +473,33 @@ export const storageMock: StorageService = {
     const updated: Stop = { ...stop, pickedUpAt: nowIso() };
     state.stops.set(stopId, updated);
     return updated;
+  },
+
+  async markStopNotified10min(stopId: string): Promise<Stop> {
+    const stop = state.stops.get(stopId);
+    if (!stop) {
+      throw new Error(`stop ${stopId} not found`);
+    }
+    if (stop.notified10min) {
+      return stop;
+    }
+    const updated: Stop = { ...stop, notified10min: true };
+    state.stops.set(stopId, updated);
+    return updated;
+  },
+
+  async updateStopEta(stopId: string, etaAtIso: string): Promise<Stop> {
+    const stop = state.stops.get(stopId);
+    if (!stop) {
+      throw new Error(`stop ${stopId} not found`);
+    }
+    const updated: Stop = { ...stop, etaAt: etaAtIso };
+    state.stops.set(stopId, updated);
+    return updated;
+  },
+
+  async getPickupRequest(id: string): Promise<PickupRequest | null> {
+    return state.pickupRequests.get(id) ?? null;
   },
 
   async recordDriverLocation(
