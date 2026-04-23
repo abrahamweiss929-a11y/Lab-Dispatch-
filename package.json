@@ -11,6 +11,7 @@
     "test": "vitest run",
     "smoke-check": "NODE_OPTIONS=\"--conditions=react-server\" tsx --env-file=.env.local scripts/smoke-check.ts",
     "seed-live-accounts": "NODE_OPTIONS=\"--conditions=react-server\" tsx --env-file=.env.local scripts/seed-live-accounts.ts",
+    "seed-live-data": "NODE_OPTIONS=\"--conditions=react-server\" tsx --env-file=.env.local scripts/seed-live-data.ts",
     "apply-rls-policies": "tsx scripts/apply-rls-policies.ts"
   },
   "dependencies": {
