@@ -121,33 +121,43 @@ function parseJwtSubUnsafe(jwt: string): string | null {
  * that looks like a JWT (three dot-separated segments).
  */
 function findAccessTokenJwt(request: NextRequest): string | null {
-  const parts: string[] = [];
-  for (const cookie of request.cookies.getAll()) {
-    if (!SB_ACCESS_TOKEN_COOKIE_PATTERN.test(cookie.name)) continue;
-    parts.push(cookie.value);
+  // Sort by name so chunked cookies (`.0`, `.1`, ...) assemble in order —
+  // request.cookies.getAll() doesn't guarantee ordering.
+  const matching = request.cookies
+    .getAll()
+    .filter((c) => SB_ACCESS_TOKEN_COOKIE_PATTERN.test(c.name))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  if (matching.length === 0) return null;
+  const joined = matching.map((c) => c.value).join("");
+
+  // @supabase/ssr v0.5+ writes the cookie as `base64-<b64>` where the
+  // decoded bytes are the JSON session object. Older versions stored the
+  // JSON directly or (rarer still) a bare JWT. Handle all three.
+  let payload = joined;
+  if (payload.startsWith("base64-")) {
+    const b64 = payload.slice("base64-".length);
+    const decoded = base64UrlDecode(b64);
+    if (decoded === null) return null;
+    payload = decoded;
   }
-  if (parts.length === 0) return null;
-  const joined = parts.join("");
+
   const candidates: string[] = [];
-  // JSON-encoded shape: `[ "access", "refresh", ... ]` or
-  // `{ "access_token": "...", ... }`. Strip the leading `base64-` prefix
-  // some versions prepend.
-  const stripped = joined.startsWith("base64-") ? joined.slice(7) : joined;
   try {
-    const decoded = JSON.parse(stripped);
-    if (Array.isArray(decoded) && typeof decoded[0] === "string") {
-      candidates.push(decoded[0]);
+    const parsed = JSON.parse(payload);
+    if (Array.isArray(parsed) && typeof parsed[0] === "string") {
+      candidates.push(parsed[0]);
     } else if (
-      decoded &&
-      typeof decoded === "object" &&
-      typeof (decoded as { access_token?: unknown }).access_token === "string"
+      parsed &&
+      typeof parsed === "object" &&
+      typeof (parsed as { access_token?: unknown }).access_token === "string"
     ) {
-      candidates.push((decoded as { access_token: string }).access_token);
+      candidates.push((parsed as { access_token: string }).access_token);
     }
   } catch {
     // Not JSON — fall through to "treat as a bare JWT".
   }
-  candidates.push(stripped);
+  candidates.push(payload);
+
   for (const candidate of candidates) {
     if (typeof candidate === "string" && candidate.split(".").length >= 2) {
       return candidate;

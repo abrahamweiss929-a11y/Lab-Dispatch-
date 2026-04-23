@@ -190,4 +190,54 @@ describe("readSessionFromRequest", () => {
       role: "driver",
     });
   });
+
+  it("decodes the base64- prefixed cookie shape used by @supabase/ssr v0.5+", async () => {
+    // This is the actual shape in production: the cookie value is
+    // "base64-<b64encoded JSON session>". The middleware must base64-decode
+    // before JSON.parse — a past bug treated the b64 string as JSON
+    // directly and returned null, causing an infinite /admin → /login loop.
+    const jwt = buildJwt({ sub: "user-b64" });
+    const session = {
+      access_token: jwt,
+      refresh_token: "refresh",
+      expires_at: 9999999999,
+      expires_in: 3600,
+      token_type: "bearer",
+      user: { id: "user-b64" },
+    };
+    const b64 = Buffer.from(JSON.stringify(session)).toString("base64");
+    const req = makeRequest({
+      ld_role: "admin",
+      "sb-usaaakfdmqydflsudknk-auth-token": `base64-${b64}`,
+    });
+    expect(await readSessionFromRequest(req)).toEqual({
+      userId: "user-b64",
+      role: "admin",
+    });
+  });
+
+  it("handles chunked + base64- prefixed cookies together", async () => {
+    const jwt = buildJwt({ sub: "user-b64-chunked" });
+    const session = {
+      access_token: jwt,
+      refresh_token: "refresh",
+      expires_at: 9999999999,
+      expires_in: 3600,
+      token_type: "bearer",
+    };
+    const b64 = Buffer.from(JSON.stringify(session)).toString("base64");
+    const full = `base64-${b64}`;
+    const mid = Math.floor(full.length / 2);
+    const req = makeRequest({
+      ld_role: "dispatcher",
+      // Intentionally set .1 first to prove the middleware sorts by name
+      // rather than trusting the cookie header order.
+      "sb-proj-auth-token.1": full.slice(mid),
+      "sb-proj-auth-token.0": full.slice(0, mid),
+    });
+    expect(await readSessionFromRequest(req)).toEqual({
+      userId: "user-b64-chunked",
+      role: "dispatcher",
+    });
+  });
 });
