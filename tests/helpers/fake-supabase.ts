@@ -17,8 +17,10 @@
  *     responsible for enqueueing `{ data: row, error: null }` or
  *     `{ data: null, error: null }` (for `maybeSingle` miss) shaped to
  *     match what the adapter expects.
- *   - The fake also exposes an `auth` namespace with `admin.listUsers`
- *     as a `vi.fn()` so tests can set the return value per-test.
+ *   - The fake also exposes an `auth` namespace with `signInWithPassword`
+ *     + `signOut` (top-level) and `admin.listUsers` + `admin.createUser`
+ *     + `admin.deleteUser` (nested) as `vi.fn()`s so tests can set the
+ *     return value per-test.
  *
  * This helper intentionally doesn't model filter semantics — the real
  * "does a WHERE clause match" check is a pure-unit test concern handled
@@ -43,9 +45,17 @@ export interface RecordedCall {
 export interface FakeSupabase {
   from(table: string): FakeQuery;
   auth: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    signInWithPassword: ReturnType<typeof vi.fn<any, any>>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    signOut: ReturnType<typeof vi.fn<any, any>>;
     admin: {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       listUsers: ReturnType<typeof vi.fn<any, any>>;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      createUser: ReturnType<typeof vi.fn<any, any>>;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      deleteUser: ReturnType<typeof vi.fn<any, any>>;
     };
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -158,11 +168,21 @@ export function makeFakeSupabase(): FakeSupabase {
       return makeQuery(table);
     },
     auth: {
+      signInWithPassword: vi.fn(async () => ({
+        data: { user: null, session: null },
+        error: null,
+      })),
+      signOut: vi.fn(async () => ({ error: null })),
       admin: {
         listUsers: vi.fn(async () => ({
           data: { users: [] },
           error: null,
         })),
+        createUser: vi.fn(async () => ({
+          data: { user: null },
+          error: null,
+        })),
+        deleteUser: vi.fn(async () => ({ data: null, error: null })),
       },
     },
     rpc: vi.fn(async () => ({ data: null, error: null })),
@@ -178,9 +198,26 @@ export function makeFakeSupabase(): FakeSupabase {
     __reset(): void {
       queues.clear();
       calls.length = 0;
+      fake.auth.signInWithPassword.mockReset();
+      fake.auth.signInWithPassword.mockImplementation(async () => ({
+        data: { user: null, session: null },
+        error: null,
+      }));
+      fake.auth.signOut.mockReset();
+      fake.auth.signOut.mockImplementation(async () => ({ error: null }));
       fake.auth.admin.listUsers.mockReset();
       fake.auth.admin.listUsers.mockImplementation(async () => ({
         data: { users: [] },
+        error: null,
+      }));
+      fake.auth.admin.createUser.mockReset();
+      fake.auth.admin.createUser.mockImplementation(async () => ({
+        data: { user: null },
+        error: null,
+      }));
+      fake.auth.admin.deleteUser.mockReset();
+      fake.auth.admin.deleteUser.mockImplementation(async () => ({
+        data: null,
         error: null,
       }));
       fake.rpc.mockReset();

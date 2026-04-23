@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { makeFakeSupabase } from "./fake-supabase";
 
 describe("fake-supabase helper", () => {
@@ -67,5 +67,54 @@ describe("fake-supabase helper", () => {
     await expect(async () => {
       await client.from("offices").select("*");
     }).rejects.toThrow(/no response queued/);
+  });
+
+  it("exposes vi.fn stubs for the full auth surface and __reset restores defaults", async () => {
+    const client = makeFakeSupabase();
+    // Each auth stub is a vi.fn with its documented default shape.
+    expect(vi.isMockFunction(client.auth.signInWithPassword)).toBe(true);
+    expect(vi.isMockFunction(client.auth.signOut)).toBe(true);
+    expect(vi.isMockFunction(client.auth.admin.listUsers)).toBe(true);
+    expect(vi.isMockFunction(client.auth.admin.createUser)).toBe(true);
+    expect(vi.isMockFunction(client.auth.admin.deleteUser)).toBe(true);
+
+    // Overwrite each with a per-test return and assert it holds...
+    client.auth.signInWithPassword.mockResolvedValueOnce({
+      data: { user: { id: "u1" }, session: null },
+      error: null,
+    });
+    client.auth.signOut.mockResolvedValueOnce({
+      error: { message: "x" },
+    });
+    client.auth.admin.createUser.mockResolvedValueOnce({
+      data: { user: { id: "u1" } },
+      error: null,
+    });
+    client.auth.admin.deleteUser.mockResolvedValueOnce({
+      data: null,
+      error: { message: "y" },
+    });
+    const signIn = await client.auth.signInWithPassword({
+      email: "a",
+      password: "b",
+    });
+    expect(signIn.data.user.id).toBe("u1");
+
+    // ...then __reset() restores the documented defaults.
+    client.__reset();
+    const defaultSignIn = await client.auth.signInWithPassword({
+      email: "a",
+      password: "b",
+    });
+    expect(defaultSignIn).toEqual({
+      data: { user: null, session: null },
+      error: null,
+    });
+    const defaultSignOut = await client.auth.signOut();
+    expect(defaultSignOut).toEqual({ error: null });
+    const defaultCreate = await client.auth.admin.createUser({ email: "x" });
+    expect(defaultCreate).toEqual({ data: { user: null }, error: null });
+    const defaultDelete = await client.auth.admin.deleteUser("u1");
+    expect(defaultDelete).toEqual({ data: null, error: null });
   });
 });

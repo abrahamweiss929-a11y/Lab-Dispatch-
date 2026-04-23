@@ -63,6 +63,13 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+// Shared temporary seed password for newly-created drivers. Admins reset
+// it via Supabase immediately after creation. Not a secret to protect —
+// every new driver gets the same starter password until the onboarding
+// flow (random password + reset email) lands in a follow-up. Flagged in
+// BLOCKERS.md and BUILD_LOG.md.
+const TEMPORARY_DRIVER_PASSWORD = "test1234";
+
 /**
  * Returns the full set of StorageService methods backed by Supabase.
  * `sb()` is invoked per call so env-var errors surface on first use, not
@@ -199,16 +206,93 @@ export function createRealStorageService(): StorageService {
     return data ? dbDriverToDriver(data as unknown as DbDriverRow) : null;
   }
 
-  async function createDriver(_input: NewDriver): Promise<Driver> {
-    // Intentionally scoped throw: full driver creation requires
-    // `supabase.auth.admin.createUser` + `profiles` insert + `drivers`
-    // insert in a transaction. That belongs to the auth adapter feature
-    // (`docs/plans/adapter-supabase-auth.md`). Every OTHER storage
-    // method is fully wired on this adapter — only createDriver defers.
-    void _input;
-    throw new Error(
-      "createDriver requires the Supabase auth adapter — see docs/plans/adapter-supabase-auth.md",
-    );
+  async function createDriver(input: NewDriver): Promise<Driver> {
+    // Multi-step, non-transactional across auth + Postgres. Rollback is
+    // best-effort: if any step after `auth.admin.createUser` fails, we
+    // attempt to delete the auth user we just created (and the profile
+    // row if drivers-insert is the failing step, so the FK to profiles
+    // is clean before we touch auth). If a rollback step itself fails,
+    // we log a warning and still surface the ORIGINAL error — the
+    // failed email will be unclaimable until an admin manually deletes
+    // it via Supabase. Tracked in BLOCKERS.md.
+    const createResult = await sb().auth.admin.createUser({
+      email: input.email,
+      password: TEMPORARY_DRIVER_PASSWORD,
+      email_confirm: true,
+    });
+    if (createResult.error || !createResult.data?.user) {
+      throw wrapSupabaseError(
+        { code: "auth", message: createResult.error?.message },
+        "createDriver (auth.admin.createUser)",
+      );
+    }
+    const userId = createResult.data.user.id;
+
+    const rollbackAuth = async (context: string): Promise<void> => {
+      try {
+        const delResult = await sb().auth.admin.deleteUser(userId);
+        if (delResult.error) {
+          console.warn(
+            `createDriver rollback at ${context}: auth.admin.deleteUser returned error for user ${userId}`,
+          );
+        }
+      } catch {
+        console.warn(
+          `createDriver rollback at ${context}: auth.admin.deleteUser threw for user ${userId}`,
+        );
+      }
+    };
+
+    const profInsert = await sb().from("profiles").insert({
+      id: userId,
+      role: "driver",
+      full_name: input.fullName,
+      phone: input.phone ?? null,
+    });
+    if (profInsert.error) {
+      await rollbackAuth("profiles insert");
+      throw wrapSupabaseError(
+        profInsert.error,
+        "createDriver (profiles insert)",
+      );
+    }
+
+    const drvInsert = await sb()
+      .from("drivers")
+      .insert({
+        profile_id: userId,
+        vehicle_label: input.vehicleLabel ?? null,
+        active: input.active,
+      })
+      .select(
+        "profile_id, vehicle_label, active, created_at, profiles(full_name, phone)",
+      )
+      .single();
+    if (drvInsert.error) {
+      // Roll back profiles FIRST (drivers FK references profiles), then
+      // auth. We delete profiles explicitly instead of relying on
+      // `on delete cascade` so the rollback is deterministic even if the
+      // auth delete fails partially.
+      try {
+        const profDel = await sb().from("profiles").delete().eq("id", userId);
+        if (profDel.error) {
+          console.warn(
+            `createDriver rollback: profiles delete returned error for user ${userId}`,
+          );
+        }
+      } catch {
+        console.warn(
+          `createDriver rollback: profiles delete threw for user ${userId}`,
+        );
+      }
+      await rollbackAuth("drivers insert");
+      throw wrapSupabaseError(
+        drvInsert.error,
+        "createDriver (drivers insert)",
+      );
+    }
+
+    return dbDriverToDriver(drvInsert.data as unknown as DbDriverRow);
   }
 
   async function updateDriver(

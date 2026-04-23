@@ -240,16 +240,164 @@ describe("createRealStorageService() — per-method coverage against fake Supaba
       expect(d).toBeNull();
     });
 
-    it("createDriver throws a scoped auth-adapter-required error", async () => {
+    it("createDriver happy path creates auth user + profiles row + drivers row", async () => {
+      fakeClient.auth.admin.createUser.mockResolvedValueOnce({
+        data: { user: { id: "u1" } },
+        error: null,
+      });
+      fakeClient.__enqueue("profiles", "insert", {
+        data: null,
+        error: null,
+      });
+      fakeClient.__enqueue("drivers", "insert", {
+        data: {
+          profile_id: "u1",
+          vehicle_label: "Van-1",
+          active: true,
+          created_at: "2026-04-22T10:00:00Z",
+          profiles: { full_name: "New Driver", phone: "+15550001234" },
+        },
+        error: null,
+      });
+      const driver = await storage.createDriver({
+        fullName: "New Driver",
+        email: "new@x.test",
+        phone: "+15550001234",
+        vehicleLabel: "Van-1",
+        active: true,
+      });
+      expect(driver.profileId).toBe("u1");
+      expect(driver.fullName).toBe("New Driver");
+      expect(driver.phone).toBe("+15550001234");
+      // No rollback fired on happy path.
+      expect(fakeClient.auth.admin.deleteUser).not.toHaveBeenCalled();
+      // Auth createUser was called with email_confirm so the seeded
+      // password is immediately usable.
+      expect(fakeClient.auth.admin.createUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: "new@x.test",
+          email_confirm: true,
+        }),
+      );
+    });
+
+    it("createDriver surfaces auth.admin.createUser failure without touching DB", async () => {
+      fakeClient.auth.admin.createUser.mockResolvedValueOnce({
+        data: { user: null },
+        error: { message: "email already exists" },
+      });
+      await expect(
+        storage.createDriver({
+          fullName: "X",
+          email: "dup@x.test",
+          active: true,
+        }),
+      ).rejects.toThrow(/createDriver \(auth.admin.createUser\) failed/);
+      // No `profiles` or `drivers` calls were issued.
+      const calls = fakeClient.__calls();
+      expect(calls.some((c) => c.table === "profiles")).toBe(false);
+      expect(calls.some((c) => c.table === "drivers")).toBe(false);
+      // Nothing to roll back.
+      expect(fakeClient.auth.admin.deleteUser).not.toHaveBeenCalled();
+    });
+
+    it("createDriver rolls back the auth user when profiles insert fails", async () => {
+      fakeClient.auth.admin.createUser.mockResolvedValueOnce({
+        data: { user: { id: "u1" } },
+        error: null,
+      });
+      fakeClient.__enqueue("profiles", "insert", {
+        data: null,
+        error: { code: "23505", message: "duplicate key" },
+      });
       await expect(
         storage.createDriver({
           fullName: "X",
           email: "x@x.test",
           active: true,
         }),
-      ).rejects.toThrow(/requires the Supabase auth adapter/);
-      // No DB calls were made.
-      expect(fakeClient.__calls()).toHaveLength(0);
+      ).rejects.toThrow(/createDriver \(profiles insert\) failed/);
+      expect(fakeClient.auth.admin.deleteUser).toHaveBeenCalledTimes(1);
+      expect(fakeClient.auth.admin.deleteUser).toHaveBeenCalledWith("u1");
+      // Drivers table was never touched.
+      expect(
+        fakeClient.__calls().some((c) => c.table === "drivers"),
+      ).toBe(false);
+    });
+
+    it("createDriver rolls back profiles THEN auth when drivers insert fails", async () => {
+      fakeClient.auth.admin.createUser.mockResolvedValueOnce({
+        data: { user: { id: "u1" } },
+        error: null,
+      });
+      fakeClient.__enqueue("profiles", "insert", {
+        data: null,
+        error: null,
+      });
+      fakeClient.__enqueue("drivers", "insert", {
+        data: null,
+        error: { code: "23503", message: "FK violation" },
+      });
+      // Rollback delete on profiles.
+      fakeClient.__enqueue("profiles", "delete", {
+        data: null,
+        error: null,
+      });
+      await expect(
+        storage.createDriver({
+          fullName: "X",
+          email: "x@x.test",
+          active: true,
+        }),
+      ).rejects.toThrow(/createDriver \(drivers insert\) failed/);
+      // profiles delete was called with eq("id", "u1").
+      const profileDeleteCalls = fakeClient
+        .__calls()
+        .filter((c) => c.table === "profiles" && c.method === "delete");
+      expect(profileDeleteCalls.length).toBeGreaterThanOrEqual(1);
+      const eqOnProfilesDelete = fakeClient
+        .__calls()
+        .filter(
+          (c) =>
+            c.table === "profiles" &&
+            c.op === "delete" &&
+            c.method === "eq",
+        );
+      expect(eqOnProfilesDelete.some((c) => c.args[0] === "id" && c.args[1] === "u1")).toBe(
+        true,
+      );
+      expect(fakeClient.auth.admin.deleteUser).toHaveBeenCalledTimes(1);
+      expect(fakeClient.auth.admin.deleteUser).toHaveBeenCalledWith("u1");
+    });
+
+    it("createDriver surfaces ORIGINAL error even when rollback-auth-delete itself fails", async () => {
+      fakeClient.auth.admin.createUser.mockResolvedValueOnce({
+        data: { user: { id: "u1" } },
+        error: null,
+      });
+      fakeClient.__enqueue("profiles", "insert", {
+        data: null,
+        error: { code: "23505", message: "duplicate key" },
+      });
+      fakeClient.auth.admin.deleteUser.mockRejectedValueOnce(
+        new Error("network down"),
+      );
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        await expect(
+          storage.createDriver({
+            fullName: "X",
+            email: "x@x.test",
+            active: true,
+          }),
+        ).rejects.toThrow(/createDriver \(profiles insert\) failed/);
+        // Rollback warning was emitted (message does not include the
+        // stack / raw error object — per the implementation we log a
+        // context string only, never the user's password or email).
+        expect(warnSpy).toHaveBeenCalled();
+      } finally {
+        warnSpy.mockRestore();
+      }
     });
 
     it("updateDriver applies profile patch and driver patch, then reads back", async () => {
