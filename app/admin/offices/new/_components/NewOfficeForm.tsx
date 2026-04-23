@@ -12,7 +12,7 @@ export function NewOfficeForm() {
   );
 
   return (
-    <form action={formAction} className="max-w-xl space-y-4">
+    <form action={formAction} className="max-w-xl space-y-4" noValidate>
       {state?.error ? (
         <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-700">
           {state?.error}
@@ -24,7 +24,6 @@ export function NewOfficeForm() {
         <input
           type="text"
           name="name"
-          required
           className="rounded border border-gray-300 px-3 py-2"
         />
         {state?.fieldErrors?.name ? (
@@ -61,7 +60,6 @@ export function NewOfficeForm() {
           <input
             type="text"
             name="street"
-            required
             className="rounded border border-gray-300 px-3 py-2"
           />
           {state?.fieldErrors?.street ? (
@@ -77,7 +75,6 @@ export function NewOfficeForm() {
             <input
               type="text"
               name="city"
-              required
               className="rounded border border-gray-300 px-3 py-2"
             />
             {state?.fieldErrors?.city ? (
@@ -91,7 +88,6 @@ export function NewOfficeForm() {
             <input
               type="text"
               name="state"
-              required
               maxLength={2}
               className="rounded border border-gray-300 px-3 py-2 uppercase"
             />
@@ -106,7 +102,6 @@ export function NewOfficeForm() {
             <input
               type="text"
               name="zip"
-              required
               maxLength={5}
               className="rounded border border-gray-300 px-3 py-2"
             />

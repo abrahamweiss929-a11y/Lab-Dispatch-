@@ -51,7 +51,7 @@ export function PickupRequestForm({
     state?.status === "error" ? state?.fieldErrors : ({} as const);
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form action={formAction} className="space-y-5" noValidate>
       <header>
         <h1 className="text-2xl font-bold tracking-tight">
           Request sample pickup — {officeName}
@@ -77,8 +77,6 @@ export function PickupRequestForm({
         <span className="font-medium">Notes</span>
         <textarea
           name="notes"
-          required
-          minLength={10}
           maxLength={1000}
           rows={4}
           className="rounded border border-gray-300 px-3 py-2"

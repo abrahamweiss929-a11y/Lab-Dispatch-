@@ -22,7 +22,7 @@ export function NewRouteForm({ drivers, defaultDate }: NewRouteFormProps) {
   );
 
   return (
-    <form action={formAction} className="max-w-xl space-y-4">
+    <form action={formAction} className="max-w-xl space-y-4" noValidate>
       {state?.error ? (
         <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-700">
           {state?.error}
@@ -33,7 +33,6 @@ export function NewRouteForm({ drivers, defaultDate }: NewRouteFormProps) {
         <span className="font-medium">Driver</span>
         <select
           name="driverId"
-          required
           defaultValue=""
           className="rounded border border-gray-300 px-3 py-2"
         >
@@ -58,7 +57,6 @@ export function NewRouteForm({ drivers, defaultDate }: NewRouteFormProps) {
         <input
           type="date"
           name="routeDate"
-          required
           defaultValue={defaultDate}
           className="rounded border border-gray-300 px-3 py-2"
         />

@@ -31,7 +31,7 @@ export function EditOfficeForm({ office }: EditOfficeFormProps) {
   }
 
   return (
-    <form action={formAction} className="max-w-xl space-y-4">
+    <form action={formAction} className="max-w-xl space-y-4" noValidate>
       {state?.error ? (
         <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-700">
           {state?.error}
@@ -43,7 +43,6 @@ export function EditOfficeForm({ office }: EditOfficeFormProps) {
         <input
           type="text"
           name="name"
-          required
           defaultValue={office.name}
           className="rounded border border-gray-300 px-3 py-2"
         />
@@ -99,7 +98,6 @@ export function EditOfficeForm({ office }: EditOfficeFormProps) {
           <input
             type="text"
             name="street"
-            required
             defaultValue={office.address.street}
             className="rounded border border-gray-300 px-3 py-2"
           />
@@ -116,7 +114,6 @@ export function EditOfficeForm({ office }: EditOfficeFormProps) {
             <input
               type="text"
               name="city"
-              required
               defaultValue={office.address.city}
               className="rounded border border-gray-300 px-3 py-2"
             />
@@ -131,7 +128,6 @@ export function EditOfficeForm({ office }: EditOfficeFormProps) {
             <input
               type="text"
               name="state"
-              required
               maxLength={2}
               defaultValue={office.address.state}
               className="rounded border border-gray-300 px-3 py-2 uppercase"
@@ -147,7 +143,6 @@ export function EditOfficeForm({ office }: EditOfficeFormProps) {
             <input
               type="text"
               name="zip"
-              required
               maxLength={5}
               defaultValue={office.address.zip}
               className="rounded border border-gray-300 px-3 py-2"

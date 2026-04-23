@@ -19,7 +19,7 @@ export function EditDriverForm({ driver, email }: EditDriverFormProps) {
   );
 
   return (
-    <form action={formAction} className="max-w-xl space-y-4">
+    <form action={formAction} className="max-w-xl space-y-4" noValidate>
       {state?.error ? (
         <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-700">
           {state?.error}
@@ -31,7 +31,6 @@ export function EditDriverForm({ driver, email }: EditDriverFormProps) {
         <input
           type="text"
           name="fullName"
-          required
           defaultValue={driver.fullName}
           className="rounded border border-gray-300 px-3 py-2"
         />

@@ -12,7 +12,7 @@ export function NewDriverForm() {
   );
 
   return (
-    <form action={formAction} className="max-w-xl space-y-4">
+    <form action={formAction} className="max-w-xl space-y-4" noValidate>
       {state?.error ? (
         <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-700">
           {state?.error}
@@ -24,7 +24,6 @@ export function NewDriverForm() {
         <input
           type="text"
           name="fullName"
-          required
           className="rounded border border-gray-300 px-3 py-2"
         />
         {state?.fieldErrors?.fullName ? (
@@ -39,7 +38,6 @@ export function NewDriverForm() {
         <input
           type="email"
           name="email"
-          required
           className="rounded border border-gray-300 px-3 py-2"
           autoComplete="email"
         />

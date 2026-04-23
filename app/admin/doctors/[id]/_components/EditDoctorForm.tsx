@@ -24,7 +24,7 @@ export function EditDoctorForm({ doctor, offices }: EditDoctorFormProps) {
   );
 
   return (
-    <form action={formAction} className="max-w-xl space-y-4">
+    <form action={formAction} className="max-w-xl space-y-4" noValidate>
       {state?.error ? (
         <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-700">
           {state?.error}
@@ -35,7 +35,6 @@ export function EditDoctorForm({ doctor, offices }: EditDoctorFormProps) {
         <span className="font-medium">Office</span>
         <select
           name="officeId"
-          required
           defaultValue={doctor.officeId}
           className="rounded border border-gray-300 px-3 py-2"
         >
@@ -60,7 +59,6 @@ export function EditDoctorForm({ doctor, offices }: EditDoctorFormProps) {
         <input
           type="text"
           name="name"
-          required
           defaultValue={doctor.name}
           className="rounded border border-gray-300 px-3 py-2"
         />
