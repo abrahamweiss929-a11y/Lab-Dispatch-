@@ -46,6 +46,27 @@ describe("getServices()", () => {
     }
   });
 
+  it("real storage throws NotConfiguredError with envVar='NEXT_PUBLIC_SUPABASE_URL' when USE_MOCKS='false' and Supabase env is missing", async () => {
+    vi.stubEnv("USE_MOCKS", "false");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
+    // Clear the memoized admin client so the missing-env branch runs.
+    const { __resetSupabaseAdminClient } = await import(
+      "./supabase-client"
+    );
+    __resetSupabaseAdminClient();
+    const services = getServices();
+    try {
+      await services.storage.listOffices();
+      throw new Error("expected NotConfiguredError");
+    } catch (err) {
+      expect(err).toBeInstanceOf(NotConfiguredError);
+      expect((err as NotConfiguredError).envVar).toBe(
+        "NEXT_PUBLIC_SUPABASE_URL",
+      );
+    }
+  });
+
   it("throws when USE_MOCKS is set to an invalid value", () => {
     vi.stubEnv("USE_MOCKS", "yes");
     expect(() => getServices()).toThrow(/USE_MOCKS must be 'true' or 'false'/);
