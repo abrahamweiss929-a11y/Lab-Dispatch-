@@ -273,4 +273,100 @@ describe("createRealAiService() — hermetic coverage against mocked @anthropic-
     });
     expect(result).toEqual({ confidence: 0.42 });
   });
+
+  // Fenced-JSON regression — live Anthropic responses (seen in smoke-check
+  // run of feature/adapter-twilio-sms) wrap the JSON payload in a
+  // ```json … ``` block even though the system prompt says "no markdown
+  // fences". These four cases lock in the `stripJsonFences` helper so a
+  // future refactor cannot silently reintroduce the `{ confidence: 0 }`
+  // collapse on every real call.
+  it("parses JSON wrapped in ```json fences (typical Claude response)", async () => {
+    const payload = JSON.stringify({
+      urgency: "routine",
+      sampleCount: 2,
+      confidence: 0.9,
+    });
+    hoisted.holder.current.mockResolvedValueOnce(
+      okResponse("```json\n" + payload + "\n```"),
+    );
+    const result = await service.parsePickupMessage({
+      channel: "sms",
+      from: "+15551234567",
+      body: "pick up 2",
+    });
+    expect(result).toEqual({
+      urgency: "routine",
+      sampleCount: 2,
+      confidence: 0.9,
+    });
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it("parses JSON wrapped in plain ``` fences (no language tag)", async () => {
+    const payload = JSON.stringify({
+      urgency: "urgent",
+      sampleCount: 1,
+      confidence: 0.75,
+    });
+    hoisted.holder.current.mockResolvedValueOnce(
+      okResponse("```\n" + payload + "\n```"),
+    );
+    const result = await service.parsePickupMessage({
+      channel: "sms",
+      from: "+15551234567",
+      body: "urgent pickup",
+    });
+    expect(result).toEqual({
+      urgency: "urgent",
+      sampleCount: 1,
+      confidence: 0.75,
+    });
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it("still parses unfenced JSON responses (backward-compat)", async () => {
+    // Guards against over-zealous regex that might trim valid content
+    // from responses that actually obey the "no markdown fences" prompt.
+    const payload = JSON.stringify({
+      urgency: "stat",
+      sampleCount: 5,
+      confidence: 0.95,
+    });
+    hoisted.holder.current.mockResolvedValueOnce(okResponse(payload));
+    const result = await service.parsePickupMessage({
+      channel: "sms",
+      from: "+15551234567",
+      body: "stat 5 samples",
+    });
+    expect(result).toEqual({
+      urgency: "stat",
+      sampleCount: 5,
+      confidence: 0.95,
+    });
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it("parses fenced JSON with surrounding whitespace / extra newlines", async () => {
+    const payload = JSON.stringify({
+      urgency: "routine",
+      sampleCount: 3,
+      specialInstructions: "back entrance",
+      confidence: 0.6,
+    });
+    hoisted.holder.current.mockResolvedValueOnce(
+      okResponse("  \n\n```json\n" + payload + "\n```   \n\n"),
+    );
+    const result = await service.parsePickupMessage({
+      channel: "email",
+      from: "office@example.test",
+      body: "3 samples back entrance",
+    });
+    expect(result).toEqual({
+      urgency: "routine",
+      sampleCount: 3,
+      specialInstructions: "back entrance",
+      confidence: 0.6,
+    });
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
 });

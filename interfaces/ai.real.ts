@@ -61,6 +61,30 @@ const LOW_CONFIDENCE: ParsePickupMessageResult = { confidence: 0 };
 const ALLOWED_URGENCIES = new Set(["routine", "urgent", "stat"]);
 const MAX_SPECIAL_INSTRUCTIONS_CHARS = 500;
 
+/**
+ * Strip a single optional leading markdown code fence (``` or ```json …) and
+ * a single optional trailing ``` fence from an otherwise-JSON string.
+ *
+ * Claude Haiku/Sonnet frequently wraps structured JSON in ```json fences
+ * even when the system prompt explicitly asks for "no prose, no markdown
+ * fences" — the model is trained hard enough on code-block formatting
+ * that suppression is best-effort, not guaranteed. Parsing the raw text
+ * without stripping collapsed every fenced response to `{ confidence: 0 }`.
+ *
+ * The regexes are intentionally conservative:
+ *   - leading:  optional language tag, optional newline
+ *   - trailing: optional newline, optional whitespace
+ * so unfenced responses pass through unchanged (backward-compat for the
+ * mocked-SDK test suite and for the minority of responses that obeyed
+ * the prompt).
+ */
+export function stripJsonFences(s: string): string {
+  return s
+    .trim()
+    .replace(/^```(?:json)?\s*\n?/i, "")
+    .replace(/\n?\s*```\s*$/, "");
+}
+
 function coerceResult(raw: unknown): ParsePickupMessageResult | null {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
     return null;
@@ -152,7 +176,7 @@ export function createRealAiService(): AiService {
 
       let parsed: unknown;
       try {
-        parsed = JSON.parse(textBlock.text);
+        parsed = JSON.parse(stripJsonFences(textBlock.text));
       } catch {
         return LOW_CONFIDENCE;
       }
