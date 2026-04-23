@@ -828,14 +828,24 @@ export function createRealStorageService(): StorageService {
 
   async function listMessages(filter?: ListMessagesFilter): Promise<Message[]> {
     if (filter?.flagged === true) {
-      // Messages with no pickup_request_id OR linked to a flagged request.
+      // Fetch all messages with embedded pickup_request status, then filter
+      // in JS. Using .or() on an embedded resource is a PostgREST footgun
+      // that silently returns wrong rows on LEFT joins.
       const { data, error } = await sb()
         .from("messages")
         .select("*, pickup_requests(status)")
-        .or("pickup_request_id.is.null,pickup_requests.status.eq.flagged")
         .order("received_at", { ascending: false });
       if (error) throw wrapSupabaseError(error, "listMessages (flagged)");
-      return ((data ?? []) as DbMessageRow[]).map(dbMessageToMessage);
+      type EmbedShape = { status: string } | Array<{ status: string }> | null;
+      type MsgWithStatus = DbMessageRow & { pickup_requests: EmbedShape };
+      const rows = (data ?? []) as unknown as MsgWithStatus[];
+      const filtered = rows.filter((m) => {
+        if (m.pickup_request_id === null) return true;
+        const embed = m.pickup_requests;
+        const status = Array.isArray(embed) ? embed[0]?.status : embed?.status;
+        return status === "flagged";
+      });
+      return filtered.map(dbMessageToMessage);
     }
     const { data, error } = await sb()
       .from("messages")
@@ -974,7 +984,7 @@ export function createRealStorageService(): StorageService {
       pendingRes,
       activeRoutesRes,
       routesForDateRes,
-      flaggedMsgsRes,
+      allMsgsRes,
     ] = await Promise.all([
       sb()
         .from("pickup_requests")
@@ -985,14 +995,30 @@ export function createRealStorageService(): StorageService {
         .select("*", { count: "exact", head: true })
         .eq("status", "active"),
       sb().from("routes").select("id").eq("route_date", date),
+      // Fetch messages with embedded pickup_request status for JS-side filtering.
+      // Using .or() on an embedded resource with head:true is a known PostgREST
+      // footgun that produces wrong counts or crashes — filter in JS instead.
       sb()
         .from("messages")
-        .select("*, pickup_requests(status)", { count: "exact", head: true })
-        .or("pickup_request_id.is.null,pickup_requests.status.eq.flagged"),
+        .select("pickup_request_id, pickup_requests(status)"),
     ]);
-    for (const r of [pendingRes, activeRoutesRes, routesForDateRes, flaggedMsgsRes]) {
+    for (const r of [pendingRes, activeRoutesRes, routesForDateRes, allMsgsRes]) {
       if (r.error) throw wrapSupabaseError(r.error, "countDispatcherDashboard");
     }
+
+    // supabase-js may return the embedded FK object as an object or array
+    // depending on the relation cardinality inference. Handle both shapes.
+    type EmbedShape = { status: string } | Array<{ status: string }> | null;
+    type MsgRow = { pickup_request_id: string | null; pickup_requests: EmbedShape };
+    function embeddedStatus(embed: EmbedShape): string | null {
+      if (embed === null) return null;
+      if (Array.isArray(embed)) return embed[0]?.status ?? null;
+      return embed.status;
+    }
+    const flaggedMessages = ((allMsgsRes.data ?? []) as unknown as MsgRow[]).filter(
+      (m) => m.pickup_request_id === null || embeddedStatus(m.pickup_requests) === "flagged",
+    ).length;
+
     const routeIds = ((routesForDateRes.data ?? []) as Array<{ id: string }>).map(
       (r) => r.id,
     );
@@ -1016,9 +1042,7 @@ export function createRealStorageService(): StorageService {
       activeRoutes: getCount(
         activeRoutesRes as unknown as { count?: number | null },
       ),
-      flaggedMessages: getCount(
-        flaggedMsgsRes as unknown as { count?: number | null },
-      ),
+      flaggedMessages,
     };
   }
 

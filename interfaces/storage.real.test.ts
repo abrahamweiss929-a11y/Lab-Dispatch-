@@ -899,12 +899,46 @@ describe("createRealStorageService() — per-method coverage against fake Supaba
   // ---- Messages ------------------------------------------------------
 
   describe("messages", () => {
-    it("listMessages({ flagged: true }) applies the or() filter", async () => {
+    it("listMessages({ flagged: true }) returns unlinked and flagged-linked messages only", async () => {
+      fakeClient.__enqueue("messages", "select", {
+        data: [
+          {
+            id: "m1", channel: "sms", from_identifier: "+15550000001",
+            subject: null, body: "unlinked", received_at: "2026-04-22T10:00:00Z",
+            pickup_request_id: null,
+            pickup_requests: null,
+          },
+          {
+            id: "m2", channel: "email", from_identifier: "x@x.com",
+            subject: null, body: "flagged-linked", received_at: "2026-04-22T11:00:00Z",
+            pickup_request_id: "pr-flagged",
+            pickup_requests: { status: "flagged" },
+          },
+          {
+            id: "m3", channel: "sms", from_identifier: "+15550000002",
+            subject: null, body: "completed-linked", received_at: "2026-04-22T12:00:00Z",
+            pickup_request_id: "pr-completed",
+            pickup_requests: { status: "completed" },
+          },
+          {
+            id: "m4", channel: "sms", from_identifier: "+15550000003",
+            subject: null, body: "pending-linked", received_at: "2026-04-22T13:00:00Z",
+            pickup_request_id: "pr-pending",
+            pickup_requests: { status: "pending" },
+          },
+        ],
+        error: null,
+      });
+      const msgs = await storage.listMessages({ flagged: true });
+      expect(msgs.map((m) => m.id)).toEqual(["m1", "m2"]);
+    });
+
+    it("listMessages({ flagged: true }) does NOT use or() (fragile PostgREST embed filter removed)", async () => {
       fakeClient.__enqueue("messages", "select", { data: [], error: null });
       await storage.listMessages({ flagged: true });
       expect(
         fakeClient.__calls().some((c) => c.method === "or"),
-      ).toBe(true);
+      ).toBe(false);
     });
 
     it("createMessage round-trips and returns the domain row", async () => {
@@ -1078,10 +1112,14 @@ describe("createRealStorageService() — per-method coverage against fake Supaba
         data: [{ id: "r1" }, { id: "r2" }],
         error: null,
       });
+      // messages now returns rows (not count) so JS can filter flagged/unlinked
       fakeClient.__enqueue("messages", "select", {
-        data: null,
+        data: [
+          { pickup_request_id: null, pickup_requests: null },          // unlinked → counted
+          { pickup_request_id: "pr1", pickup_requests: { status: "flagged" } },  // flagged → counted
+          { pickup_request_id: "pr2", pickup_requests: { status: "pending" } },  // pending → NOT counted
+        ],
         error: null,
-        count: 3,
       });
       fakeClient.__enqueue("stops", "select", {
         data: null,
@@ -1093,8 +1131,26 @@ describe("createRealStorageService() — per-method coverage against fake Supaba
         pendingRequests: 5,
         todayStops: 7,
         activeRoutes: 2,
-        flaggedMessages: 3,
+        flaggedMessages: 2, // only the 2 that are unlinked or flagged-linked
       });
+    });
+
+    it("countDispatcherDashboard JS filter: counts only unlinked + flagged-linked messages", async () => {
+      fakeClient.__enqueue("pickup_requests", "select", { data: null, error: null, count: 0 });
+      fakeClient.__enqueue("routes", "select", { data: null, error: null, count: 0 });
+      fakeClient.__enqueue("routes", "select", { data: [], error: null });
+      fakeClient.__enqueue("messages", "select", {
+        data: [
+          { pickup_request_id: null, pickup_requests: null },
+          { pickup_request_id: null, pickup_requests: null },
+          { pickup_request_id: "pr1", pickup_requests: { status: "flagged" } },
+          { pickup_request_id: "pr2", pickup_requests: { status: "completed" } },
+          { pickup_request_id: "pr3", pickup_requests: { status: "pending" } },
+        ],
+        error: null,
+      });
+      const counts = await storage.countDispatcherDashboard("2026-04-22");
+      expect(counts.flaggedMessages).toBe(3); // 2 unlinked + 1 flagged
     });
 
     it("countDispatcherDashboard handles no routes for the date (todayStops=0)", async () => {
@@ -1110,9 +1166,8 @@ describe("createRealStorageService() — per-method coverage against fake Supaba
       });
       fakeClient.__enqueue("routes", "select", { data: [], error: null });
       fakeClient.__enqueue("messages", "select", {
-        data: null,
+        data: [],
         error: null,
-        count: 3,
       });
       const counts = await storage.countDispatcherDashboard("2026-04-22");
       expect(counts.todayStops).toBe(0);

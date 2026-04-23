@@ -441,4 +441,47 @@ describe("wrapSupabaseError", () => {
     expect(wrapped.message).toContain("x failed");
     expect(wrapped.message).toContain("code=unknown");
   });
+
+  it("includes details when present", () => {
+    const wrapped = wrapSupabaseError(
+      { code: "23503", message: "FK violation", details: "Key (office_id)=(bad-id) is not present" },
+      "createPickupRequest",
+    );
+    expect(wrapped.message).toContain("FK violation");
+    expect(wrapped.message).toContain("Key (office_id)=(bad-id) is not present");
+  });
+
+  it("includes hint when present", () => {
+    const wrapped = wrapSupabaseError(
+      { code: "42703", message: "column does not exist", hint: "Perhaps you meant to reference the column 'pickup_url_token'" },
+      "findOfficeBySlugToken",
+    );
+    expect(wrapped.message).toContain("column does not exist");
+    expect(wrapped.message).toContain("pickup_url_token");
+  });
+
+  it("scrubs URLs and tokens in details and hint fields", () => {
+    const wrapped = wrapSupabaseError(
+      {
+        code: "PGRST301",
+        details: "reached https://leaky.supabase.co/rest/v1/stops",
+        hint: "token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.sig leaked",
+      },
+      "listStops",
+    );
+    expect(wrapped.message).not.toContain("https://leaky.supabase.co");
+    expect(wrapped.message).not.toContain("eyJhbGci");
+    expect(wrapped.message).toContain("[redacted-url]");
+    expect(wrapped.message).toContain("[redacted-token]");
+  });
+
+  it("omits empty details and hint from suffix", () => {
+    const wrapped = wrapSupabaseError(
+      { code: "42501", message: "permission denied", details: "", hint: "" },
+      "deleteDoctor",
+    );
+    // Should not have stray separators from empty fields
+    expect(wrapped.message).not.toContain(" |  |");
+    expect(wrapped.message).toContain("permission denied");
+  });
 });

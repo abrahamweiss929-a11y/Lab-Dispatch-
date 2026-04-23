@@ -419,30 +419,34 @@ export function messageToDbInsert(
 
 /**
  * Wraps a Supabase PostgREST error into a plain `Error` with a stable
- * message shape. Crucially:
- *
- *   - Includes ONLY `err.message` text (if present) after the context
- *     prefix. Never serializes or includes the input row, env values, or
- *     the err object itself.
- *   - Falls back to `err.code` when `err.message` is absent.
- *
- * Callers never pass secrets into `err` (PostgREST never round-trips
- * them), but this wrapper still avoids any reflection that could leak
- * them by accident.
+ * message shape. Includes `message`, `details`, and `hint` from the
+ * PostgREST error object so callers can see the full diagnostic without
+ * reading raw Supabase error objects. All three fields are scrubbed for
+ * URLs, JWTs, and service-role strings before inclusion.
  */
 export function wrapSupabaseError(
-  err: { code?: string; message?: string; details?: string } | null | undefined,
+  err:
+    | { code?: string; message?: string; details?: string; hint?: string }
+    | null
+    | undefined,
   context: string,
 ): Error {
   const code = err?.code ?? "unknown";
-  const rawMessage = typeof err?.message === "string" ? err.message : "";
-  // Redact anything that looks like a bearer/service-role token or a
-  // full URL. Defense in depth — supabase-js does not normally echo
-  // these, but this wrapper guarantees it.
-  const safeMessage = rawMessage
-    .replace(/https?:\/\/\S+/gi, "[redacted-url]")
-    .replace(/eyJ[a-zA-Z0-9_.-]+/g, "[redacted-token]")
-    .replace(/service[_-]?role[^\s]*/gi, "[redacted-secret]");
-  const suffix = safeMessage.length > 0 ? `: ${safeMessage}` : "";
+
+  function scrub(raw: string | undefined): string {
+    if (typeof raw !== "string" || raw.length === 0) return "";
+    return raw
+      .replace(/https?:\/\/\S+/gi, "[redacted-url]")
+      .replace(/eyJ[a-zA-Z0-9_.-]+/g, "[redacted-token]")
+      .replace(/service[_-]?role[^\s]*/gi, "[redacted-secret]");
+  }
+
+  const parts = [
+    scrub(err?.message),
+    scrub(err?.details),
+    scrub(err?.hint),
+  ].filter((s) => s.length > 0);
+
+  const suffix = parts.length > 0 ? `: ${parts.join(" | ")}` : "";
   return new Error(`${context} failed (code=${code})${suffix}`);
 }
