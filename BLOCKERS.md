@@ -4,13 +4,6 @@ Things that require the user's accounts, API keys, or decisions before v1 can go
 
 ## Unresolved
 
-### [twilio-sms] Twilio SMS credentials
-**Type:** API key + account
-**Needed for:** pickup SMS intake, driver SMS notifications, dispatcher send
-**What to provide:** `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`
-**Where it plugs in:** `interfaces/sms.ts` (real adapter); inbound webhook route (to be added with SMS intake feature)
-**Workaround in place:** `mocks/sms.ts` stores sends in an in-memory array with deterministic ids (`sms-mock-0`, `sms-mock-1`, …); `getSent()` returns the log for assertions.
-
 ### [inbound-email] Email send + inbound parsing
 **Type:** API key + account + decision
 **Needed for:** pickup email intake, outbound auto-confirmations, dispatcher notifications
@@ -34,6 +27,13 @@ Things that require the user's accounts, API keys, or decisions before v1 can go
   - Driver stop detail page `/driver/route/[stopId]` currently renders address + "Open in Maps" Google Maps deep link; inline Mapbox route view lands with the Mapbox integration feature.
 
 ## Resolved
+
+### [twilio-sms] Twilio SMS credentials — **Status: DONE (real adapter shipped).**
+**Type:** API key + account
+**Needed for:** pickup SMS intake, driver SMS notifications, dispatcher send
+**What to provide:** `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`
+**Where it plugs in:** real adapter lives in `interfaces/sms.real.ts` (`"server-only"`); tests in `interfaces/sms.real.test.ts`. The three env vars are still required at runtime but are no longer a build blocker — `createRealSmsService().sendSms()` throws `NotConfiguredError` with a friendly message when any are missing. `interfaces/sms.ts` re-exports `createRealSmsService` from the `"server-only"` module; callers' imports are unchanged. Inbound webhook receiver + `X-Twilio-Signature` verification remain deferred (STEP 4 of the SMS integration) and will land alongside the inbound route at `app/api/twilio/sms/route.ts`.
+**Workaround in place:** `mocks/sms.ts` stores sends in an in-memory array with deterministic ids (`sms-mock-0`, `sms-mock-1`, …); `getSent()` returns the log for assertions. Kept as-is for `USE_MOCKS=true` pipeline tests.
 
 ### [anthropic] Anthropic API key — **Status: DONE (real adapter shipped).**
 **Type:** API key

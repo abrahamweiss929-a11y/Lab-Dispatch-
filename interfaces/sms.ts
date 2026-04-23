@@ -1,5 +1,3 @@
-import { NotConfiguredError } from "@/lib/errors";
-
 export interface SmsSendParams {
   to: string;
   body: string;
@@ -18,13 +16,7 @@ export interface SmsService {
   sendSms(params: SmsSendParams): Promise<SmsSendResult>;
 }
 
-export function createRealSmsService(): SmsService {
-  return {
-    async sendSms(_params: SmsSendParams): Promise<SmsSendResult> {
-      throw new NotConfiguredError({
-        service: "sms (Twilio)",
-        envVar: "TWILIO_ACCOUNT_SID",
-      });
-    },
-  };
-}
+// The real adapter lives in a `"server-only"` module so webpack errors
+// if anyone accidentally pulls it into a Client Component. Callers
+// continue to import the interface + helper types from this file.
+export { createRealSmsService } from "./sms.real";
