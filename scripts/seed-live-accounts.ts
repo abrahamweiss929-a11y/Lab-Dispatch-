@@ -63,7 +63,7 @@ async function findUserIdByEmail(
   return match?.id ?? null;
 }
 
-async function seedAccount(
+export async function seedAccount(
   sb: ReturnType<typeof getSupabaseAdminClient>,
   account: SeedAccount,
 ): Promise<{ created: boolean; userId: string }> {
@@ -109,6 +109,22 @@ async function seedAccount(
       )}`,
     );
   }
+
+  // Driver-role accounts also need a row in public.drivers so that
+  // storage.getDriver(profileId) returns a result (not null → "Driver not found").
+  if (account.role === "driver") {
+    const driverResp = await sb
+      .from("drivers")
+      .upsert({ profile_id: userId, vehicle_label: null, active: true }, { onConflict: "profile_id" });
+    if (driverResp.error) {
+      throw new Error(
+        `upsert drivers failed for ${account.email}: ${scrub(
+          driverResp.error.message ?? "(no message)",
+        )}`,
+      );
+    }
+  }
+
   return { created, userId };
 }
 
@@ -124,8 +140,13 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  const msg = err instanceof Error ? err.message : String(err);
-  process.stderr.write(`FAIL seed-live-accounts: ${scrub(msg)}\n`);
-  process.exit(1);
-});
+// Guard so the script only auto-runs when executed directly (not when imported
+// by tests). tsx sets process.argv[1] to the absolute script path.
+import { fileURLToPath } from "node:url";
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((err) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`FAIL seed-live-accounts: ${scrub(msg)}\n`);
+    process.exit(1);
+  });
+}
