@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AdminLayout } from "@/components/AdminLayout";
 import { getServices } from "@/interfaces";
+import { formatShortDateTime } from "@/lib/dates";
 import { requireAdminSession } from "@/lib/require-admin";
 import { deactivateDriverAction } from "./actions";
 
@@ -59,7 +60,7 @@ export default async function DriversListPage() {
                     <td className="px-4 py-2">{d.vehicleLabel ?? "—"}</td>
                     <td className="px-4 py-2">{d.active ? "Yes" : "No"}</td>
                     <td className="px-4 py-2 text-xs text-gray-500">
-                      {d.createdAt}
+                      {formatShortDateTime(d.createdAt)}
                     </td>
                     <td className="flex gap-2 px-4 py-2">
                       <Link

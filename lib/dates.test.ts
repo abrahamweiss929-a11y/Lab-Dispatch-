@@ -53,6 +53,13 @@ describe("formatShortDateTime", () => {
       /Apr 22,\s2:07\sPM/i,
     );
   });
+
+  it("does not return a raw ISO-shaped string (regression: admin drivers page used to render createdAt directly)", () => {
+    const result = formatShortDateTime("2026-04-22T14:07:00Z", "UTC");
+    // A raw ISO string would look like "2026-04-22T14:07:00Z". The formatted
+    // output must not match that shape.
+    expect(result).not.toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/);
+  });
 });
 
 describe("formatDateIsoToShort", () => {
