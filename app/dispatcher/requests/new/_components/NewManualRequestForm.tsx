@@ -22,9 +22,9 @@ export function NewManualRequestForm({ offices }: NewManualRequestFormProps) {
 
   return (
     <form action={formAction} className="max-w-xl space-y-4">
-      {state.error ? (
+      {state?.error ? (
         <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-700">
-          {state.error}
+          {state?.error}
         </p>
       ) : null}
 
@@ -45,9 +45,9 @@ export function NewManualRequestForm({ offices }: NewManualRequestFormProps) {
             </option>
           ))}
         </select>
-        {state.fieldErrors.officeId ? (
+        {state?.fieldErrors?.officeId ? (
           <span className="text-xs text-red-600">
-            {state.fieldErrors.officeId}
+            {state?.fieldErrors?.officeId}
           </span>
         ) : null}
       </label>
@@ -64,9 +64,9 @@ export function NewManualRequestForm({ offices }: NewManualRequestFormProps) {
           <option value="urgent">Urgent</option>
           <option value="stat">Stat</option>
         </select>
-        {state.fieldErrors.urgency ? (
+        {state?.fieldErrors?.urgency ? (
           <span className="text-xs text-red-600">
-            {state.fieldErrors.urgency}
+            {state?.fieldErrors?.urgency}
           </span>
         ) : null}
       </label>
@@ -80,9 +80,9 @@ export function NewManualRequestForm({ offices }: NewManualRequestFormProps) {
           step="1"
           className="rounded border border-gray-300 px-3 py-2"
         />
-        {state.fieldErrors.sampleCount ? (
+        {state?.fieldErrors?.sampleCount ? (
           <span className="text-xs text-red-600">
-            {state.fieldErrors.sampleCount}
+            {state?.fieldErrors?.sampleCount}
           </span>
         ) : null}
       </label>

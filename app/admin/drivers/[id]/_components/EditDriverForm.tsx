@@ -20,9 +20,9 @@ export function EditDriverForm({ driver, email }: EditDriverFormProps) {
 
   return (
     <form action={formAction} className="max-w-xl space-y-4">
-      {state.error ? (
+      {state?.error ? (
         <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-700">
-          {state.error}
+          {state?.error}
         </p>
       ) : null}
 
@@ -35,9 +35,9 @@ export function EditDriverForm({ driver, email }: EditDriverFormProps) {
           defaultValue={driver.fullName}
           className="rounded border border-gray-300 px-3 py-2"
         />
-        {state.fieldErrors.fullName ? (
+        {state?.fieldErrors?.fullName ? (
           <span className="text-xs text-red-600">
-            {state.fieldErrors.fullName}
+            {state?.fieldErrors?.fullName}
           </span>
         ) : null}
       </label>
@@ -65,9 +65,9 @@ export function EditDriverForm({ driver, email }: EditDriverFormProps) {
           className="rounded border border-gray-300 px-3 py-2"
           autoComplete="tel"
         />
-        {state.fieldErrors.phone ? (
+        {state?.fieldErrors?.phone ? (
           <span className="text-xs text-red-600">
-            {state.fieldErrors.phone}
+            {state?.fieldErrors?.phone}
           </span>
         ) : null}
       </label>

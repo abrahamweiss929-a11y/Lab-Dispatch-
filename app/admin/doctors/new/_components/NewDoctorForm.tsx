@@ -22,9 +22,9 @@ export function NewDoctorForm({ offices }: NewDoctorFormProps) {
 
   return (
     <form action={formAction} className="max-w-xl space-y-4">
-      {state.error ? (
+      {state?.error ? (
         <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-700">
-          {state.error}
+          {state?.error}
         </p>
       ) : null}
 
@@ -45,9 +45,9 @@ export function NewDoctorForm({ offices }: NewDoctorFormProps) {
             </option>
           ))}
         </select>
-        {state.fieldErrors.officeId ? (
+        {state?.fieldErrors?.officeId ? (
           <span className="text-xs text-red-600">
-            {state.fieldErrors.officeId}
+            {state?.fieldErrors?.officeId}
           </span>
         ) : null}
       </label>
@@ -60,9 +60,9 @@ export function NewDoctorForm({ offices }: NewDoctorFormProps) {
           required
           className="rounded border border-gray-300 px-3 py-2"
         />
-        {state.fieldErrors.name ? (
+        {state?.fieldErrors?.name ? (
           <span className="text-xs text-red-600">
-            {state.fieldErrors.name}
+            {state?.fieldErrors?.name}
           </span>
         ) : null}
       </label>
@@ -74,9 +74,9 @@ export function NewDoctorForm({ offices }: NewDoctorFormProps) {
           name="phone"
           className="rounded border border-gray-300 px-3 py-2"
         />
-        {state.fieldErrors.phone ? (
+        {state?.fieldErrors?.phone ? (
           <span className="text-xs text-red-600">
-            {state.fieldErrors.phone}
+            {state?.fieldErrors?.phone}
           </span>
         ) : null}
       </label>
@@ -88,9 +88,9 @@ export function NewDoctorForm({ offices }: NewDoctorFormProps) {
           name="email"
           className="rounded border border-gray-300 px-3 py-2"
         />
-        {state.fieldErrors.email ? (
+        {state?.fieldErrors?.email ? (
           <span className="text-xs text-red-600">
-            {state.fieldErrors.email}
+            {state?.fieldErrors?.email}
           </span>
         ) : null}
       </label>

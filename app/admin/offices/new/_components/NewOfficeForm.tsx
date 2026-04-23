@@ -13,9 +13,9 @@ export function NewOfficeForm() {
 
   return (
     <form action={formAction} className="max-w-xl space-y-4">
-      {state.error ? (
+      {state?.error ? (
         <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-700">
-          {state.error}
+          {state?.error}
         </p>
       ) : null}
 
@@ -27,9 +27,9 @@ export function NewOfficeForm() {
           required
           className="rounded border border-gray-300 px-3 py-2"
         />
-        {state.fieldErrors.name ? (
+        {state?.fieldErrors?.name ? (
           <span className="text-xs text-red-600">
-            {state.fieldErrors.name}
+            {state?.fieldErrors?.name}
           </span>
         ) : null}
       </label>
@@ -46,9 +46,9 @@ export function NewOfficeForm() {
           name="slug"
           className="rounded border border-gray-300 px-3 py-2 font-mono text-xs"
         />
-        {state.fieldErrors.slug ? (
+        {state?.fieldErrors?.slug ? (
           <span className="text-xs text-red-600">
-            {state.fieldErrors.slug}
+            {state?.fieldErrors?.slug}
           </span>
         ) : null}
       </label>
@@ -64,9 +64,9 @@ export function NewOfficeForm() {
             required
             className="rounded border border-gray-300 px-3 py-2"
           />
-          {state.fieldErrors.street ? (
+          {state?.fieldErrors?.street ? (
             <span className="text-xs text-red-600">
-              {state.fieldErrors.street}
+              {state?.fieldErrors?.street}
             </span>
           ) : null}
         </label>
@@ -80,9 +80,9 @@ export function NewOfficeForm() {
               required
               className="rounded border border-gray-300 px-3 py-2"
             />
-            {state.fieldErrors.city ? (
+            {state?.fieldErrors?.city ? (
               <span className="text-xs text-red-600">
-                {state.fieldErrors.city}
+                {state?.fieldErrors?.city}
               </span>
             ) : null}
           </label>
@@ -95,9 +95,9 @@ export function NewOfficeForm() {
               maxLength={2}
               className="rounded border border-gray-300 px-3 py-2 uppercase"
             />
-            {state.fieldErrors.state ? (
+            {state?.fieldErrors?.state ? (
               <span className="text-xs text-red-600">
-                {state.fieldErrors.state}
+                {state?.fieldErrors?.state}
               </span>
             ) : null}
           </label>
@@ -110,9 +110,9 @@ export function NewOfficeForm() {
               maxLength={5}
               className="rounded border border-gray-300 px-3 py-2"
             />
-            {state.fieldErrors.zip ? (
+            {state?.fieldErrors?.zip ? (
               <span className="text-xs text-red-600">
-                {state.fieldErrors.zip}
+                {state?.fieldErrors?.zip}
               </span>
             ) : null}
           </label>
@@ -126,9 +126,9 @@ export function NewOfficeForm() {
           name="phone"
           className="rounded border border-gray-300 px-3 py-2"
         />
-        {state.fieldErrors.phone ? (
+        {state?.fieldErrors?.phone ? (
           <span className="text-xs text-red-600">
-            {state.fieldErrors.phone}
+            {state?.fieldErrors?.phone}
           </span>
         ) : null}
       </label>
@@ -140,9 +140,9 @@ export function NewOfficeForm() {
           name="email"
           className="rounded border border-gray-300 px-3 py-2"
         />
-        {state.fieldErrors.email ? (
+        {state?.fieldErrors?.email ? (
           <span className="text-xs text-red-600">
-            {state.fieldErrors.email}
+            {state?.fieldErrors?.email}
           </span>
         ) : null}
       </label>

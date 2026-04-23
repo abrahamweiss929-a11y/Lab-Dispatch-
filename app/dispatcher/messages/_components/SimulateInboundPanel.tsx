@@ -7,8 +7,12 @@ import {
   type SimulateInboundFormState,
 } from "../actions";
 
-function Banner({ state }: { state: SimulateInboundFormState }) {
-  if (state.status === "idle") return null;
+function Banner({
+  state,
+}: {
+  state: SimulateInboundFormState | undefined;
+}) {
+  if (!state || state.status === "idle") return null;
   const tone =
     state.status === "ok"
       ? "border-green-200 bg-green-50 text-green-800"

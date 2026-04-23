@@ -23,9 +23,9 @@ export function NewRouteForm({ drivers, defaultDate }: NewRouteFormProps) {
 
   return (
     <form action={formAction} className="max-w-xl space-y-4">
-      {state.error ? (
+      {state?.error ? (
         <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-700">
-          {state.error}
+          {state?.error}
         </p>
       ) : null}
 
@@ -46,9 +46,9 @@ export function NewRouteForm({ drivers, defaultDate }: NewRouteFormProps) {
             </option>
           ))}
         </select>
-        {state.fieldErrors.driverId ? (
+        {state?.fieldErrors?.driverId ? (
           <span className="text-xs text-red-600">
-            {state.fieldErrors.driverId}
+            {state?.fieldErrors?.driverId}
           </span>
         ) : null}
       </label>
@@ -62,9 +62,9 @@ export function NewRouteForm({ drivers, defaultDate }: NewRouteFormProps) {
           defaultValue={defaultDate}
           className="rounded border border-gray-300 px-3 py-2"
         />
-        {state.fieldErrors.routeDate ? (
+        {state?.fieldErrors?.routeDate ? (
           <span className="text-xs text-red-600">
-            {state.fieldErrors.routeDate}
+            {state?.fieldErrors?.routeDate}
           </span>
         ) : null}
       </label>

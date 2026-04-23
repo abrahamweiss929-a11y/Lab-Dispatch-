@@ -26,14 +26,14 @@ export function PickupRequestForm({
     INITIAL_PICKUP_FORM_STATE,
   );
 
-  if (state.status === "ok") {
+  if (state?.status === "ok") {
     return (
       <section className="rounded border border-green-200 bg-green-50 p-6">
         <h1 className="text-2xl font-bold tracking-tight text-green-900">
           Thanks — request received
         </h1>
         <p className="mt-3 text-sm text-gray-800">
-          A driver will be by {state.etaText}.
+          A driver will be by {state?.etaText}.
         </p>
         {officePhone !== undefined && officePhone.length > 0 ? (
           <p className="mt-2 text-sm text-gray-800">
@@ -48,9 +48,9 @@ export function PickupRequestForm({
     );
   }
 
-  const error = state.status === "error" ? state.error : null;
+  const error = state?.status === "error" ? state?.error : null;
   const fieldErrors =
-    state.status === "error" ? state.fieldErrors : ({} as const);
+    state?.status === "error" ? state?.fieldErrors : ({} as const);
 
   return (
     <form action={formAction} className="space-y-5">
