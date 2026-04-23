@@ -1,9 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 
-import {
-  INITIAL_PICKUP_FORM_STATE,
-  submitPickupRequestAction,
-} from "./actions";
+import { INITIAL_PICKUP_FORM_STATE } from "./form-state";
+import { submitPickupRequestAction } from "./actions";
 import { resetAllMocks } from "@/interfaces";
 import { storageMock } from "@/mocks/storage";
 import { getSentEmails } from "@/mocks/email";

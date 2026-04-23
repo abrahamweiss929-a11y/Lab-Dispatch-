@@ -1,10 +1,8 @@
 "use client";
 
 import { useFormState } from "react-dom";
-import {
-  INITIAL_PICKUP_FORM_STATE,
-  submitPickupRequestAction,
-} from "../actions";
+import { INITIAL_PICKUP_FORM_STATE } from "../form-state";
+import { submitPickupRequestAction } from "../actions";
 
 interface PickupRequestFormProps {
   slugToken: string;

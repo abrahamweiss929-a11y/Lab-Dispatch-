@@ -5,24 +5,10 @@ import { estimateEtaText } from "@/lib/eta";
 import { parseSlugToken } from "@/lib/parse-slug-token";
 import { pickupFormBucket } from "@/lib/rate-limit";
 import type { PickupUrgency } from "@/lib/types";
+import type { PickupFormState } from "./form-state";
 
 type FieldKey = "notes" | "urgency" | "sampleCount";
 type FieldErrors = Partial<Record<FieldKey, string>>;
-
-export type PickupFormState =
-  | { status: "idle"; error: null; fieldErrors: Record<string, never> }
-  | {
-      status: "error";
-      error: string | null;
-      fieldErrors: FieldErrors;
-    }
-  | { status: "ok"; requestId: string; etaText: string };
-
-export const INITIAL_PICKUP_FORM_STATE: PickupFormState = {
-  status: "idle",
-  error: null,
-  fieldErrors: {},
-};
 
 const URGENCIES: readonly PickupUrgency[] = ["routine", "urgent", "stat"];
 
