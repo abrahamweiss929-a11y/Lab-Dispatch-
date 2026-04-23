@@ -1,5 +1,3 @@
-import { NotConfiguredError } from "@/lib/errors";
-
 export interface LatLng {
   lat: number;
   lng: number;
@@ -30,23 +28,7 @@ export interface MapsService {
   etaFor(params: EtaParams): Promise<EtaResult>;
 }
 
-function notConfigured(): never {
-  throw new NotConfiguredError({
-    service: "maps (Mapbox)",
-    envVar: "NEXT_PUBLIC_MAPBOX_TOKEN",
-  });
-}
-
-export function createRealMapsService(): MapsService {
-  return {
-    async geocode() {
-      notConfigured();
-    },
-    async routeFor() {
-      notConfigured();
-    },
-    async etaFor() {
-      notConfigured();
-    },
-  };
-}
+// The real adapter lives in a `"server-only"` module so webpack errors
+// if anyone accidentally pulls it into a Client Component. Callers
+// continue to import the interface + helper types from this file.
+export { createRealMapsService } from "./maps.real";
