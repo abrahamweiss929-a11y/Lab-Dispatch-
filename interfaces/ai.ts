@@ -1,4 +1,3 @@
-import { NotConfiguredError } from "@/lib/errors";
 import type { PickupChannel, PickupUrgency } from "@/lib/types";
 
 export interface ParsePickupMessageParams {
@@ -20,15 +19,7 @@ export interface AiService {
   ): Promise<ParsePickupMessageResult>;
 }
 
-export function createRealAiService(): AiService {
-  return {
-    async parsePickupMessage(
-      _params: ParsePickupMessageParams,
-    ): Promise<ParsePickupMessageResult> {
-      throw new NotConfiguredError({
-        service: "ai (Anthropic)",
-        envVar: "ANTHROPIC_API_KEY",
-      });
-    },
-  };
-}
+// The real adapter lives in a `"server-only"` module so webpack errors
+// if anyone accidentally pulls it into a Client Component. Callers
+// continue to import the interface + helper types from this file.
+export { createRealAiService } from "./ai.real";

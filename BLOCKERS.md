@@ -33,12 +33,14 @@ Things that require the user's accounts, API keys, or decisions before v1 can go
 **Workaround in place:** `mocks/maps.ts` — deterministic fake `geocode` (base `(40.0, -74.0)` + sum-of-char-codes offset), `routeFor` returns `stops.length * 1000 m` / `stops.length * 120 s` and a synthetic polyline, `etaFor` uses inline haversine distance × 60 sec/km. Dispatcher map page lists driver rows instead of rendering a real map; unblocks when `MAPBOX_TOKEN` is set and the Mapbox GL JS client is integrated.
   - Driver stop detail page `/driver/route/[stopId]` currently renders address + "Open in Maps" Google Maps deep link; inline Mapbox route view lands with the Mapbox integration feature.
 
-### [anthropic] Anthropic API key
+## Resolved
+
+### [anthropic] Anthropic API key — **Status: DONE (real adapter shipped).**
 **Type:** API key
 **Needed for:** parsing free-text pickup messages into structured fields (urgency, sample count, special instructions, confidence)
 **What to provide:** `ANTHROPIC_API_KEY`
-**Where it plugs in:** `interfaces/ai.ts` (real adapter)
-**Workaround in place:** `mocks/ai.ts` — keyword heuristic: `"stat"` → `stat`, `"urgent"/"asap"/"rush"` → `urgent`, otherwise `routine`; first 1–99 integer becomes `sampleCount`; anything after the first newline becomes `specialInstructions`; confidence starts at 0.9 and drops 0.2 per missing signal (floor 0.5).
+**Where it plugs in:** real adapter lives in `interfaces/ai.real.ts` (`"server-only"`); tests in `interfaces/ai.real.test.ts`. `ANTHROPIC_API_KEY` is still required at runtime but is no longer a build blocker — `createRealAiService()` throws `NotConfiguredError` with a friendly message when the var is missing. `interfaces/ai.ts` re-exports `createRealAiService` from the `"server-only"` module; callers' imports are unchanged.
+**Workaround in place:** `mocks/ai.ts` — keyword heuristic: `"stat"` → `stat`, `"urgent"/"asap"/"rush"` → `urgent`, otherwise `routine`; first 1–99 integer becomes `sampleCount`; anything after the first newline becomes `specialInstructions`; confidence starts at 0.9 and drops 0.2 per missing signal (floor 0.5). Kept as-is for `USE_MOCKS=true` pipeline tests.
 
 ## Pattern
 
