@@ -86,8 +86,27 @@ describe("supabase/schema.sql", () => {
     }
   });
 
-  it("retains at least one TODO(auth) comment alongside RLS enablement", () => {
-    expect(sql).toMatch(/--\s*TODO\(auth\)/i);
+  it("declares the public.current_role() helper function", () => {
+    expect(sql).toMatch(/create or replace function public\.current_role\(\)/i);
+  });
+
+  it("every user-facing table has at least one create policy", () => {
+    for (const name of TABLE_NAMES) {
+      const pattern = new RegExp(
+        String.raw`create policy \w+ on (public\.)?${name}\b`,
+        "i",
+      );
+      expect(sql, `missing policy on ${name}`).toMatch(pattern);
+    }
+  });
+
+  it("every create policy is paired with a drop policy if exists for idempotency", () => {
+    const createCount = (sql.match(/create policy\s+\w+/gi) ?? []).length;
+    const dropCount = (
+      sql.match(/drop policy if exists\s+\w+/gi) ?? []
+    ).length;
+    expect(createCount).toBeGreaterThan(0);
+    expect(dropCount).toBe(createCount);
   });
 
   it("enforces one route per driver per day via routes_driver_id_route_date_key", () => {
