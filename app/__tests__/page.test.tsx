@@ -11,24 +11,25 @@ vi.mock("next/navigation", () => ({
 }));
 
 // Stub `getSession` so the server component under test can run in jsdom
-// without a real Next request scope (the production `getSession` calls
-// `cookies()` from `next/headers`, which requires one).
+// without a real Next request scope (the production `getSession` is async
+// and calls `cookies()` from `next/headers`, which requires a request).
 vi.mock("@/lib/session", () => ({
-  getSession: () => null,
+  getSession: async () => null,
   SESSION_COOKIE: "ld_session",
+  LD_ROLE_COOKIE: "ld_role",
 }));
 
 import Page from "@/app/page";
 
 describe("Home page", () => {
-  it("renders the Lab Dispatch heading for unauthenticated visitors", () => {
-    render(<Page />);
+  it("renders the Lab Dispatch heading for unauthenticated visitors", async () => {
+    render(await Page());
     const heading = screen.getByRole("heading", { name: /lab dispatch/i });
     expect(heading).toBeInTheDocument();
   });
 
-  it("renders a Sign in link when not authenticated", () => {
-    render(<Page />);
+  it("renders a Sign in link when not authenticated", async () => {
+    render(await Page());
     const link = screen.getByRole("link", { name: /sign in/i });
     expect(link).toHaveAttribute("href", "/login");
   });

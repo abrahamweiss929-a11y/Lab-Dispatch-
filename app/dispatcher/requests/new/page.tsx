@@ -4,7 +4,7 @@ import { requireDispatcherSession } from "@/lib/require-dispatcher";
 import { NewManualRequestForm } from "./_components/NewManualRequestForm";
 
 export default async function NewManualRequestPage() {
-  requireDispatcherSession();
+  await requireDispatcherSession();
   const offices = await getServices().storage.listOffices();
   const options = offices
     .filter((o) => o.active)

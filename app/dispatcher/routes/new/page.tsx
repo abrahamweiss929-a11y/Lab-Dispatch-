@@ -5,7 +5,7 @@ import { requireDispatcherSession } from "@/lib/require-dispatcher";
 import { NewRouteForm } from "./_components/NewRouteForm";
 
 export default async function NewRoutePage() {
-  requireDispatcherSession();
+  await requireDispatcherSession();
   const drivers = await getServices().storage.listDrivers();
   const options = drivers
     .filter((d) => d.active)

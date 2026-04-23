@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { landingPathFor } from "@/lib/auth-rules";
 import { getSession } from "@/lib/session";
 
-export default function Page() {
-  const session = getSession();
+export default async function Page() {
+  const session = await getSession();
   if (session) {
     redirect(landingPathFor(session.role));
   }

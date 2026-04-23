@@ -1,66 +1,98 @@
 /*
- * Mock-grade session cookie helper.
+ * Dual-mode session helpers.
  *
- * This module encodes the current session as a base64-JSON `ld_session`
- * cookie. It is explicitly a stop-gap: when Supabase Auth wiring lands,
- * Supabase's own sb-* access/refresh cookies will replace `ld_session` and
- * this file will be rewritten or removed. See BLOCKERS.md [supabase] for the
- * migration note.
+ * Two cookie schemes live here, gated by `process.env.USE_MOCKS`:
  *
- * Edge-runtime safety: `encodeSession` and `decodeSession` are pure and do
- * not touch `next/headers`, so they can be imported from `middleware.ts`
- * which runs in the Edge runtime. `getSession`/`setSession`/`clearSession`
- * DO import `cookies` from `next/headers` and MUST NOT be called from Edge.
+ *   - Mock mode (`USE_MOCKS=true` or unset):
+ *     A single `ld_session` cookie encoding `{ userId, role }` as base64 JSON.
+ *     The codec (`encodeSession` / `decodeSession`) lives in
+ *     `lib/session-codec.ts` so the Edge middleware can import it without
+ *     pulling in `next/headers`.
+ *
+ *   - Real mode (`USE_MOCKS=false`):
+ *     Supabase Auth's own `sb-*` access/refresh cookies drive session state,
+ *     written by `@supabase/ssr` in `lib/supabase-server.ts` /
+ *     `lib/supabase-middleware.ts`. This module also writes a companion
+ *     `ld_role` cookie so the Edge middleware can decide route access
+ *     without a DB query. `getUserFromSession()` in `lib/supabase-server.ts`
+ *     is the authoritative resolver; `ld_role` is a cache used only by the
+ *     Edge fast path.
+ *
+ * `getSession`, `setSession`, and `clearSession` are `async` in both modes
+ * because the real branch awaits a Supabase lookup. Every caller must
+ * `await` them.
+ *
+ * Edge-runtime safety: this module imports `cookies()` from `next/headers`
+ * and MUST NOT be imported by `middleware.ts` or anything else that runs
+ * in the Edge runtime. Use `lib/session-codec.ts` there.
  */
 
 import { cookies } from "next/headers";
 import type { UserRole } from "@/lib/types";
+import {
+  SESSION_COOKIE,
+  decodeSession,
+  encodeSession,
+  type SessionCookieValue,
+} from "@/lib/session-codec";
 
-export const SESSION_COOKIE = "ld_session";
+export { SESSION_COOKIE, decodeSession, encodeSession };
+export type { SessionCookieValue };
 
-export interface SessionCookieValue {
-  userId: string;
-  role: UserRole;
+/**
+ * Non-HTTPOnly? NO. This cookie is httpOnly=true. The Edge middleware
+ * reads `request.cookies.get(...)` which CAN read httpOnly cookies, so
+ * there is no need to expose this cookie to browser JS. Tampering
+ * detection remains the job of `getUserFromSession()` on the server — a
+ * forged `ld_role` gets through middleware but is rejected by every
+ * server page's authoritative Supabase check.
+ */
+export const LD_ROLE_COOKIE = "ld_role";
+
+function readUseMocks(): "mock" | "real" {
+  const flag = process.env.USE_MOCKS;
+  if (flag === undefined || flag === "true") return "mock";
+  if (flag === "false") return "real";
+  throw new Error(`USE_MOCKS must be 'true' or 'false', got: ${flag}`);
 }
 
-const ALLOWED_ROLES: readonly UserRole[] = ["driver", "dispatcher", "admin"];
-
-export function encodeSession(value: SessionCookieValue): string {
-  return Buffer.from(JSON.stringify(value)).toString("base64");
-}
-
-export function decodeSession(raw: string | undefined): SessionCookieValue | null {
-  if (!raw) return null;
-  let jsonText: string;
-  try {
-    jsonText = Buffer.from(raw, "base64").toString("utf8");
-  } catch {
-    return null;
+export async function getSession(): Promise<SessionCookieValue | null> {
+  const mode = readUseMocks();
+  if (mode === "mock") {
+    const raw = cookies().get(SESSION_COOKIE)?.value;
+    return decodeSession(raw);
   }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(jsonText);
-  } catch {
-    return null;
+  // Real mode: defer to the Supabase-backed resolver. Import lazily so
+  // the `server-only` + `@supabase/ssr` module graph is not pulled into
+  // consumers that only need the codec (e.g. Edge middleware imports
+  // `lib/session-codec.ts` directly and never loads this function).
+  const { getUserFromSession } = await import("@/lib/supabase-server");
+  return getUserFromSession();
+}
+
+export async function setSession(
+  userId: string,
+  role: UserRole,
+): Promise<void> {
+  const mode = readUseMocks();
+  if (mode === "mock") {
+    const value = encodeSession({ userId, role });
+    cookies().set(SESSION_COOKIE, value, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      secure: process.env.NODE_ENV === "production",
+    });
+    return;
   }
-  if (!parsed || typeof parsed !== "object") return null;
-  const candidate = parsed as Record<string, unknown>;
-  const userId = candidate.userId;
-  const role = candidate.role;
-  if (typeof userId !== "string" || userId.length === 0) return null;
-  if (typeof role !== "string") return null;
-  if (!ALLOWED_ROLES.includes(role as UserRole)) return null;
-  return { userId, role: role as UserRole };
-}
-
-export function getSession(): SessionCookieValue | null {
-  const raw = cookies().get(SESSION_COOKIE)?.value;
-  return decodeSession(raw);
-}
-
-export function setSession(userId: string, role: UserRole): void {
-  const value = encodeSession({ userId, role });
-  cookies().set(SESSION_COOKIE, value, {
+  // Real mode: Supabase's own `sb-*` cookies were written by
+  // `auth.signInWithPassword` on the server client — we only set the
+  // companion `ld_role` cookie so the Edge middleware has a fast-path
+  // role signal without a DB query.
+  // `userId` is intentionally unused here; the authoritative userId is
+  // encoded in Supabase's signed JWT.
+  void userId;
+  cookies().set(LD_ROLE_COOKIE, role, {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
@@ -68,6 +100,14 @@ export function setSession(userId: string, role: UserRole): void {
   });
 }
 
-export function clearSession(): void {
-  cookies().delete(SESSION_COOKIE);
+export async function clearSession(): Promise<void> {
+  const mode = readUseMocks();
+  if (mode === "mock") {
+    cookies().delete(SESSION_COOKIE);
+    return;
+  }
+  // Real mode: Supabase's `sb-*` cookies are cleared by
+  // `supabase.auth.signOut()` on the server client. We only clear the
+  // companion `ld_role` cookie.
+  cookies().delete(LD_ROLE_COOKIE);
 }

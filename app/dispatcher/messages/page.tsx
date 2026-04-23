@@ -23,7 +23,7 @@ export default async function DispatcherMessagesPage({
 }: {
   searchParams?: { filter?: string };
 }) {
-  requireDispatcherSession();
+  await requireDispatcherSession();
   const filter = parseFilter(searchParams?.filter);
   const messages = await getServices().storage.listMessages({
     flagged: filter === "flagged" ? true : undefined,

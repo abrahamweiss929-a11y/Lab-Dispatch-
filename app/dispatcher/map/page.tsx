@@ -5,7 +5,7 @@ import { formatShortDateTime } from "@/lib/dates";
 import { requireDispatcherSession } from "@/lib/require-dispatcher";
 
 export default async function DispatcherMapPage() {
-  requireDispatcherSession();
+  await requireDispatcherSession();
   const storage = getServices().storage;
   const [locations, drivers] = await Promise.all([
     storage.listDriverLocations({ sinceMinutes: 15 }),

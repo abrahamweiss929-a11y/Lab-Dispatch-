@@ -29,7 +29,7 @@ function StatCard({ label, value, href }: StatCardProps) {
 }
 
 export default async function AdminDashboardPage() {
-  requireAdminSession();
+  await requireAdminSession();
   const counts = await getServices().storage.countAdminDashboard();
 
   return (

@@ -26,7 +26,7 @@ export default async function DispatcherRoutesPage({
 }: {
   searchParams?: { status?: string };
 }) {
-  requireDispatcherSession();
+  await requireDispatcherSession();
   const status = parseStatus(searchParams?.status);
   const today = todayIso();
   const storage = getServices().storage;

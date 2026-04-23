@@ -38,7 +38,7 @@ async function loadActiveStopForDriver(
 }
 
 export async function arriveAtStopAction(stopId: string): Promise<void> {
-  const session = requireDriverSession();
+  const session = await requireDriverSession();
   await loadActiveStopForDriver(stopId, session);
   await getServices().storage.markStopArrived(stopId);
   revalidatePath("/driver/route");
@@ -47,7 +47,7 @@ export async function arriveAtStopAction(stopId: string): Promise<void> {
 }
 
 export async function pickupStopAction(stopId: string): Promise<void> {
-  const session = requireDriverSession();
+  const session = await requireDriverSession();
   const { route } = await loadActiveStopForDriver(stopId, session);
   const storage = getServices().storage;
   await storage.markStopPickedUp(stopId);

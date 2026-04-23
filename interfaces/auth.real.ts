@@ -6,21 +6,36 @@ import type { UserRole } from "@/lib/types";
 /**
  * Real Supabase-Auth-backed implementation of `AuthService`.
  *
- * Scope notes:
+ * Status after the session-migration feature:
+ *   - Real mode (USE_MOCKS=false): the methods on this service are
+ *     effectively UNREACHABLE from application code. The real login /
+ *     logout flows live in `app/login/actions.ts` and `app/logout/route.ts`
+ *     and call `@supabase/ssr` directly via `lib/supabase-server.ts`
+ *     (which is what actually writes the browser's `sb-*` cookies).
+ *     This factory remains wired so `getServices()` under USE_MOCKS=false
+ *     does not throw at construction time, but the interface is not
+ *     exercised by the real code path. A follow-up to retire this
+ *     interface entirely is flagged in BUILD_LOG.md (session-migration
+ *     entry).
+ *   - Mock mode (USE_MOCKS=true or unset): `authMock` (in `mocks/auth.ts`)
+ *     implements the `AuthService` interface and IS reached by
+ *     `app/login/actions.ts`'s mock branch. The three seeded mock
+ *     accounts continue to work through it.
+ *
+ * Scope notes (legacy, kept for history):
  *   - `signIn` validates the password via `auth.signInWithPassword`, then
  *     reads the caller's `profiles` row to resolve the app-level role.
  *     Every failure mode throws the single string `"invalid credentials"`
  *     so the login form renders the generic "Invalid email or password."
  *     banner and no DB / auth detail leaks to the user.
- *   - `signOut` is best-effort. The admin client holds no persistent user
- *     session, so the call is effectively a no-op on the server. The
- *     user-visible logout side-effect (clearing `ld_session`) lives in
- *     `app/logout/route.ts` via `clearSession()`.
- *   - `getCurrentUser` is intentionally scoped-throw today — no consumer
- *     reaches it. Every session resolver goes through
- *     `lib/session.ts::getSession()` reading the `ld_session` cookie.
- *     Wiring this properly requires the cookie rewire (STEP 4 in
- *     INTEGRATION_REPORT.md), which is a separate feature.
+ *   - `signOut` is best-effort on the admin client (which holds no
+ *     persistent user session). User-visible logout happens in
+ *     `app/logout/route.ts` via `clearSession()` + `supabase.auth.signOut()`
+ *     on the `@supabase/ssr` server client.
+ *   - `getCurrentUser` intentionally scoped-throws. No consumer reaches it
+ *     after the session migration either: session reads flow through
+ *     `lib/supabase-server.ts::getUserFromSession()` (real mode) or
+ *     `lib/session.ts::getSession()` (mock mode).
  */
 
 const INVALID = "invalid credentials";

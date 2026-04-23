@@ -8,7 +8,7 @@ import { requireDriverSession } from "@/lib/require-driver";
 import { getTodaysRouteForDriver } from "@/lib/today-route";
 
 export async function startRouteAction(routeId: string): Promise<void> {
-  const session = requireDriverSession();
+  const session = await requireDriverSession();
   const storage = getServices().storage;
   const route = await storage.getRoute(routeId);
   if (!route) {
@@ -27,7 +27,7 @@ export async function startRouteAction(routeId: string): Promise<void> {
 }
 
 export async function completeRouteAction(routeId: string): Promise<void> {
-  const session = requireDriverSession();
+  const session = await requireDriverSession();
   const storage = getServices().storage;
   const route = await storage.getRoute(routeId);
   if (!route) {
@@ -65,7 +65,7 @@ function isValidCoord(value: unknown, min: number, max: number): value is number
 export async function recordLocationAction(
   input: RecordLocationInput,
 ): Promise<void> {
-  const session = requireDriverSession();
+  const session = await requireDriverSession();
   if (!isValidCoord(input?.lat, -90, 90)) {
     throw new Error("invalid lat");
   }

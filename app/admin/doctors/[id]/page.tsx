@@ -9,7 +9,7 @@ interface PageProps {
 }
 
 export default async function EditDoctorPage({ params }: PageProps) {
-  requireAdminSession();
+  await requireAdminSession();
   const storage = getServices().storage;
   const [doctor, offices] = await Promise.all([
     storage.getDoctor(params.id),

@@ -29,7 +29,7 @@ export default async function DriverRoutePage({
 }: {
   searchParams?: { driverId?: string };
 }) {
-  const session = requireDriverOrAdminSession();
+  const session = await requireDriverOrAdminSession();
   const storage = getServices().storage;
 
   const driverId =

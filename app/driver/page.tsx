@@ -16,7 +16,7 @@ export default async function DriverTodayPage({
 }: {
   searchParams?: { driverId?: string };
 }) {
-  const session = requireDriverOrAdminSession();
+  const session = await requireDriverOrAdminSession();
   const storage = getServices().storage;
 
   let driverId: string | undefined;

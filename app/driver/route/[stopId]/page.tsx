@@ -18,7 +18,7 @@ export default async function StopDetailPage({
 }: {
   params: { stopId: string };
 }) {
-  const session = requireDriverOrAdminSession();
+  const session = await requireDriverOrAdminSession();
   const storage = getServices().storage;
 
   const stop = await storage.getStop(params.stopId);

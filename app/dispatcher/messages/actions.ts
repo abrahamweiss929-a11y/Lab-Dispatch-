@@ -8,7 +8,7 @@ import { requireDispatcherSession } from "@/lib/require-dispatcher";
 export async function convertMessageToRequestAction(
   messageId: string,
 ): Promise<void> {
-  requireDispatcherSession();
+  await requireDispatcherSession();
   await getServices().storage.createRequestFromMessage(messageId);
   revalidatePath("/dispatcher/messages");
   revalidatePath("/dispatcher/requests");
@@ -43,7 +43,7 @@ export async function simulateInboundAction(
   _prev: SimulateInboundFormState,
   formData: FormData,
 ): Promise<SimulateInboundFormState> {
-  requireDispatcherSession();
+  await requireDispatcherSession();
 
   if (process.env.USE_MOCKS === "false") {
     throw new Error("Simulate inbound is disabled in real mode");

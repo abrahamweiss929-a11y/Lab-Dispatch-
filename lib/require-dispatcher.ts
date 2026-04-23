@@ -15,8 +15,8 @@ import { getSession, type SessionCookieValue } from "@/lib/session";
  * allowed anywhere (they cover dispatch in emergencies and for dev
  * smoke).
  */
-export function requireDispatcherSession(): SessionCookieValue {
-  const session = getSession();
+export async function requireDispatcherSession(): Promise<SessionCookieValue> {
+  const session = await getSession();
   if (
     session === null ||
     (session.role !== "dispatcher" && session.role !== "admin")

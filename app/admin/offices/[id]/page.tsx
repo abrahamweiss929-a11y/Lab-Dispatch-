@@ -9,7 +9,7 @@ interface PageProps {
 }
 
 export default async function EditOfficePage({ params }: PageProps) {
-  requireAdminSession();
+  await requireAdminSession();
   const office = await getServices().storage.getOffice(params.id);
   if (!office) {
     notFound();

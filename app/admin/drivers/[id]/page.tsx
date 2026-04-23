@@ -9,7 +9,7 @@ interface PageProps {
 }
 
 export default async function EditDriverPage({ params }: PageProps) {
-  requireAdminSession();
+  await requireAdminSession();
   const storage = getServices().storage;
   const [driver, accounts] = await Promise.all([
     storage.getDriver(params.id),

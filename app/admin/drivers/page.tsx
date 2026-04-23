@@ -5,7 +5,7 @@ import { requireAdminSession } from "@/lib/require-admin";
 import { deactivateDriverAction } from "./actions";
 
 export default async function DriversListPage() {
-  requireAdminSession();
+  await requireAdminSession();
   const storage = getServices().storage;
   const [drivers, accounts] = await Promise.all([
     storage.listDrivers(),

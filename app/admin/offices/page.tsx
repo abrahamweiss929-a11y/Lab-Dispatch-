@@ -5,7 +5,7 @@ import { requireAdminSession } from "@/lib/require-admin";
 import { deactivateOfficeAction } from "./actions";
 
 export default async function OfficesListPage() {
-  requireAdminSession();
+  await requireAdminSession();
   const offices = await getServices().storage.listOffices();
 
   return (

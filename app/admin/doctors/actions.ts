@@ -50,7 +50,7 @@ export async function createDoctorAction(
   _prev: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  requireAdminSession();
+  await requireAdminSession();
   const input = readDoctorForm(formData);
   const fieldErrors = validateDoctorShape(input);
   if (Object.keys(fieldErrors).length > 0) {
@@ -86,7 +86,7 @@ export async function updateDoctorAction(
   _prev: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  requireAdminSession();
+  await requireAdminSession();
   const input = readDoctorForm(formData);
   const fieldErrors = validateDoctorShape(input);
   if (Object.keys(fieldErrors).length > 0) {
@@ -124,7 +124,7 @@ export async function updateDoctorAction(
 }
 
 export async function deleteDoctorAction(id: string): Promise<void> {
-  requireAdminSession();
+  await requireAdminSession();
   try {
     await getServices().storage.deleteDoctor(id);
   } catch {

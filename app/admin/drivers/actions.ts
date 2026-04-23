@@ -54,7 +54,7 @@ export async function createDriverAction(
   _prev: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  requireAdminSession();
+  await requireAdminSession();
   const input = readDriverForm(formData);
   const fieldErrors = validateDriverForm(input, { requireEmail: true });
   if (Object.keys(fieldErrors).length > 0) {
@@ -86,7 +86,7 @@ export async function updateDriverAction(
   _prev: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  requireAdminSession();
+  await requireAdminSession();
   const input = readDriverForm(formData);
   const fieldErrors = validateDriverForm(input, { requireEmail: false });
   if (Object.keys(fieldErrors).length > 0) {
@@ -113,7 +113,7 @@ export async function updateDriverAction(
 }
 
 export async function deactivateDriverAction(profileId: string): Promise<void> {
-  requireAdminSession();
+  await requireAdminSession();
   try {
     await getServices().storage.updateDriver(profileId, { active: false });
   } catch {

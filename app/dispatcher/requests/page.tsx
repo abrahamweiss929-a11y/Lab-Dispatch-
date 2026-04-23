@@ -45,7 +45,7 @@ export default async function DispatcherRequestsPage({
 }: {
   searchParams?: SearchParams;
 }) {
-  requireDispatcherSession();
+  await requireDispatcherSession();
   const filter = parseFilter(searchParams?.filter);
   const today = todayIso();
 

@@ -23,7 +23,7 @@ function StatCard({ label, value, href }: StatCardProps) {
 }
 
 export default async function DispatcherDashboardPage() {
-  requireDispatcherSession();
+  await requireDispatcherSession();
   const counts = await getServices().storage.countDispatcherDashboard(
     todayIso(),
   );

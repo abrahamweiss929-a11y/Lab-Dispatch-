@@ -104,7 +104,7 @@ export async function createOfficeAction(
   _prev: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  requireAdminSession();
+  await requireAdminSession();
   const input = readOfficeForm(formData);
   const fieldErrors = validateOfficeShape(input);
   if (Object.keys(fieldErrors).length > 0) {
@@ -153,7 +153,7 @@ export async function updateOfficeAction(
   _prev: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  requireAdminSession();
+  await requireAdminSession();
   const input = readOfficeForm(formData);
   const fieldErrors = validateOfficeShape(input);
   if (Object.keys(fieldErrors).length > 0) {
@@ -223,7 +223,7 @@ export async function updateOfficeAction(
 }
 
 export async function deactivateOfficeAction(id: string): Promise<void> {
-  requireAdminSession();
+  await requireAdminSession();
   try {
     await getServices().storage.updateOffice(id, { active: false });
   } catch {

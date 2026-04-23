@@ -10,8 +10,8 @@ import { getSession, type SessionCookieValue } from "@/lib/session";
  * Behavior: on mismatch, triggers `redirect("/login")`, which throws —
  * callers can treat the return value as non-null.
  */
-export function requireDriverSession(): SessionCookieValue {
-  const session = getSession();
+export async function requireDriverSession(): Promise<SessionCookieValue> {
+  const session = await getSession();
   if (session === null || session.role !== "driver") {
     redirect("/login");
   }
@@ -24,8 +24,8 @@ export function requireDriverSession(): SessionCookieValue {
  * already permits admin everywhere); dispatchers and anonymous users are
  * bounced to `/login`.
  */
-export function requireDriverOrAdminSession(): SessionCookieValue {
-  const session = getSession();
+export async function requireDriverOrAdminSession(): Promise<SessionCookieValue> {
+  const session = await getSession();
   if (
     session === null ||
     (session.role !== "driver" && session.role !== "admin")

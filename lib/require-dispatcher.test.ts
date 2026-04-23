@@ -22,32 +22,36 @@ describe("requireDispatcherSession", () => {
     redirectMock.mockClear();
   });
 
-  it("returns the session when the user is a dispatcher", () => {
+  it("returns the session when the user is a dispatcher", async () => {
     const session = { userId: "user-dispatcher", role: "dispatcher" as const };
-    getSessionMock.mockReturnValue(session);
-    expect(requireDispatcherSession()).toEqual(session);
+    getSessionMock.mockResolvedValue(session);
+    await expect(requireDispatcherSession()).resolves.toEqual(session);
     expect(redirectMock).not.toHaveBeenCalled();
   });
 
-  it("returns the session when the user is an admin", () => {
+  it("returns the session when the user is an admin", async () => {
     const session = { userId: "user-admin", role: "admin" as const };
-    getSessionMock.mockReturnValue(session);
-    expect(requireDispatcherSession()).toEqual(session);
+    getSessionMock.mockResolvedValue(session);
+    await expect(requireDispatcherSession()).resolves.toEqual(session);
     expect(redirectMock).not.toHaveBeenCalled();
   });
 
-  it("redirects to /login when the user is a driver", () => {
-    getSessionMock.mockReturnValue({
+  it("redirects to /login when the user is a driver", async () => {
+    getSessionMock.mockResolvedValue({
       userId: "user-driver",
       role: "driver",
     });
-    expect(() => requireDispatcherSession()).toThrow(/REDIRECT:\/login/);
+    await expect(requireDispatcherSession()).rejects.toThrow(
+      /REDIRECT:\/login/,
+    );
     expect(redirectMock).toHaveBeenCalledWith("/login");
   });
 
-  it("redirects to /login when there is no session", () => {
-    getSessionMock.mockReturnValue(null);
-    expect(() => requireDispatcherSession()).toThrow(/REDIRECT:\/login/);
+  it("redirects to /login when there is no session", async () => {
+    getSessionMock.mockResolvedValue(null);
+    await expect(requireDispatcherSession()).rejects.toThrow(
+      /REDIRECT:\/login/,
+    );
     expect(redirectMock).toHaveBeenCalledWith("/login");
   });
 });

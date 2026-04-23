@@ -39,7 +39,7 @@ export async function createRouteAction(
   _prev: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  requireDispatcherSession();
+  await requireDispatcherSession();
   const driverId = String(formData.get("driverId") ?? "").trim();
   const routeDate = String(formData.get("routeDate") ?? "").trim();
 
@@ -81,7 +81,7 @@ export async function addStopToRouteAction(
   routeId: string,
   formData: FormData,
 ): Promise<void> {
-  const session = requireDispatcherSession();
+  const session = await requireDispatcherSession();
   const pickupRequestId = String(formData.get("pickupRequestId") ?? "").trim();
   if (pickupRequestId.length === 0) {
     return;
@@ -96,7 +96,7 @@ export async function removeStopAction(
   routeId: string,
   stopId: string,
 ): Promise<void> {
-  const session = requireDispatcherSession();
+  const session = await requireDispatcherSession();
   await guardCanEditRoute(routeId, session);
   await getServices().storage.removeStopFromRoute(stopId);
   revalidatePath(`/dispatcher/routes/${routeId}`);
@@ -128,7 +128,7 @@ export async function moveStopUpAction(
   routeId: string,
   stopId: string,
 ): Promise<void> {
-  const session = requireDispatcherSession();
+  const session = await requireDispatcherSession();
   await guardCanEditRoute(routeId, session);
   await swapAndReorder(routeId, stopId, "up");
   revalidatePath(`/dispatcher/routes/${routeId}`);
@@ -138,14 +138,14 @@ export async function moveStopDownAction(
   routeId: string,
   stopId: string,
 ): Promise<void> {
-  const session = requireDispatcherSession();
+  const session = await requireDispatcherSession();
   await guardCanEditRoute(routeId, session);
   await swapAndReorder(routeId, stopId, "down");
   revalidatePath(`/dispatcher/routes/${routeId}`);
 }
 
 export async function startRouteAction(routeId: string): Promise<void> {
-  const session = requireDispatcherSession();
+  const session = await requireDispatcherSession();
   await guardCanEditRoute(routeId, session);
   await getServices().storage.updateRouteStatus(routeId, "active");
   revalidatePath(`/dispatcher/routes/${routeId}`);
@@ -153,7 +153,7 @@ export async function startRouteAction(routeId: string): Promise<void> {
 }
 
 export async function completeRouteAction(routeId: string): Promise<void> {
-  const session = requireDispatcherSession();
+  const session = await requireDispatcherSession();
   await guardCanEditRoute(routeId, session);
   await getServices().storage.updateRouteStatus(routeId, "completed");
   revalidatePath(`/dispatcher/routes/${routeId}`);
@@ -161,7 +161,7 @@ export async function completeRouteAction(routeId: string): Promise<void> {
 }
 
 export async function resetRouteAction(routeId: string): Promise<void> {
-  const session = requireDispatcherSession();
+  const session = await requireDispatcherSession();
   await guardCanEditRoute(routeId, session);
   await getServices().storage.updateRouteStatus(routeId, "pending");
   revalidatePath(`/dispatcher/routes/${routeId}`);

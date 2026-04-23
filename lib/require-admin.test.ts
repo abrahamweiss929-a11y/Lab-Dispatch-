@@ -22,25 +22,25 @@ describe("requireAdminSession", () => {
     redirectMock.mockClear();
   });
 
-  it("returns the session when the user is an admin", () => {
+  it("returns the session when the user is an admin", async () => {
     const session = { userId: "user-admin", role: "admin" as const };
-    getSessionMock.mockReturnValue(session);
-    expect(requireAdminSession()).toEqual(session);
+    getSessionMock.mockResolvedValue(session);
+    await expect(requireAdminSession()).resolves.toEqual(session);
     expect(redirectMock).not.toHaveBeenCalled();
   });
 
-  it("redirects to /login when the user is a dispatcher", () => {
-    getSessionMock.mockReturnValue({
+  it("redirects to /login when the user is a dispatcher", async () => {
+    getSessionMock.mockResolvedValue({
       userId: "user-dispatcher",
       role: "dispatcher",
     });
-    expect(() => requireAdminSession()).toThrow(/REDIRECT:\/login/);
+    await expect(requireAdminSession()).rejects.toThrow(/REDIRECT:\/login/);
     expect(redirectMock).toHaveBeenCalledWith("/login");
   });
 
-  it("redirects to /login when there is no session", () => {
-    getSessionMock.mockReturnValue(null);
-    expect(() => requireAdminSession()).toThrow(/REDIRECT:\/login/);
+  it("redirects to /login when there is no session", async () => {
+    getSessionMock.mockResolvedValue(null);
+    await expect(requireAdminSession()).rejects.toThrow(/REDIRECT:\/login/);
     expect(redirectMock).toHaveBeenCalledWith("/login");
   });
 });

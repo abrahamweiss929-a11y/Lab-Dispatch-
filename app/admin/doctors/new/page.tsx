@@ -4,7 +4,7 @@ import { requireAdminSession } from "@/lib/require-admin";
 import { NewDoctorForm } from "./_components/NewDoctorForm";
 
 export default async function NewDoctorPage() {
-  requireAdminSession();
+  await requireAdminSession();
   const offices = await getServices().storage.listOffices();
   const officeOptions = offices.map((o) => ({ id: o.id, name: o.name }));
 

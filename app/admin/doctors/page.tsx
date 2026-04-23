@@ -5,7 +5,7 @@ import { requireAdminSession } from "@/lib/require-admin";
 import { DeleteDoctorButton } from "./_components/DeleteDoctorButton";
 
 export default async function DoctorsListPage() {
-  requireAdminSession();
+  await requireAdminSession();
   const storage = getServices().storage;
   const [doctors, offices] = await Promise.all([
     storage.listDoctors(),

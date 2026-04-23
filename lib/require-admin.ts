@@ -10,8 +10,8 @@ import { getSession, type SessionCookieValue } from "@/lib/session";
  * `redirect("/login")`, which throws — callers can treat the return value
  * as non-null.
  */
-export function requireAdminSession(): SessionCookieValue {
-  const session = getSession();
+export async function requireAdminSession(): Promise<SessionCookieValue> {
+  const session = await getSession();
   if (session === null || session.role !== "admin") {
     redirect("/login");
   }

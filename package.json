@@ -9,10 +9,12 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "smoke-check": "NODE_OPTIONS=\"--conditions=react-server\" tsx --env-file=.env.local scripts/smoke-check.ts"
+    "smoke-check": "NODE_OPTIONS=\"--conditions=react-server\" tsx --env-file=.env.local scripts/smoke-check.ts",
+    "seed-live-accounts": "NODE_OPTIONS=\"--conditions=react-server\" tsx --env-file=.env.local scripts/seed-live-accounts.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
+    "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.104.0",
     "next": "^14.2.5",
     "react": "^18.3.1",

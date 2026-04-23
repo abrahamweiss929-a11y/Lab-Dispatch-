@@ -13,7 +13,7 @@ export default async function RouteDetailPage({
 }: {
   params: { id: string };
 }) {
-  requireDispatcherSession();
+  await requireDispatcherSession();
   const storage = getServices().storage;
   const route = await storage.getRoute(params.id);
   if (!route) {

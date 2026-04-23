@@ -13,7 +13,7 @@ export async function assignRequestToRouteAction(
   requestId: string,
   formData: FormData,
 ): Promise<void> {
-  requireDispatcherSession();
+  await requireDispatcherSession();
   const routeId = String(formData.get("routeId") ?? "").trim();
   if (routeId.length === 0) {
     return;
@@ -27,7 +27,7 @@ export async function flagRequestAction(
   requestId: string,
   formData: FormData,
 ): Promise<void> {
-  requireDispatcherSession();
+  await requireDispatcherSession();
   const reason = String(formData.get("reason") ?? "").trim();
   if (reason.length === 0) {
     return;
@@ -41,7 +41,7 @@ export async function flagRequestAction(
 }
 
 export async function markResolvedAction(requestId: string): Promise<void> {
-  requireDispatcherSession();
+  await requireDispatcherSession();
   await getServices().storage.updatePickupRequestStatus(
     requestId,
     "completed",
@@ -90,7 +90,7 @@ export async function createManualRequestAction(
   _prev: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  requireDispatcherSession();
+  await requireDispatcherSession();
   const input = readManualForm(formData);
   const fieldErrors = validateManualInput(input);
   if (Object.keys(fieldErrors).length > 0) {
