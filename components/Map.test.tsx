@@ -88,7 +88,7 @@ vi.mock("mapbox-gl/dist/mapbox-gl.css", () => ({}));
 process.env.NEXT_PUBLIC_MAPBOX_TOKEN = "pk.test-token";
 
 // Import AFTER mocks are registered.
-const { Map } = await import("./Map");
+const { MapView } = await import("./Map");
 const mapboxgl = (await import("mapbox-gl")).default as unknown as {
   Map: ReturnType<typeof vi.fn>;
   Marker: ReturnType<typeof vi.fn>;
@@ -119,7 +119,7 @@ describe("Map", () => {
   });
 
   it("renders an empty-state map when pins is empty", () => {
-    render(<Map pins={[]} />);
+    render(<MapView pins={[]} />);
     expect(screen.getByTestId("map-container")).toBeInTheDocument();
     // Constructed the map, but created no markers.
     expect(mapboxgl.Map).toHaveBeenCalledTimes(1);
@@ -131,7 +131,7 @@ describe("Map", () => {
 
   it("renders a single pin and centers on it (no fitBounds)", () => {
     render(
-      <Map
+      <MapView
         pins={[{ lat: 40.7128, lng: -74.006, label: "1", popup: "Only stop" }]}
       />,
     );
@@ -149,7 +149,7 @@ describe("Map", () => {
       { lat: 40.73, lng: -74.01, label: "3" },
       { lat: 40.71, lng: -73.99, label: "4" },
     ];
-    render(<Map pins={pins} />);
+    render(<MapView pins={pins} />);
     expect(markerInstances).toHaveLength(4);
     expect(mapboxgl.LngLatBounds).toHaveBeenCalledTimes(1);
     expect(boundsExtend).toHaveBeenCalledTimes(4);
@@ -158,7 +158,7 @@ describe("Map", () => {
 
   it("draws a polyline when showRoute=true and pins.length >= 2", () => {
     render(
-      <Map
+      <MapView
         showRoute
         pins={[
           { lat: 40.7, lng: -74.0 },
@@ -179,14 +179,14 @@ describe("Map", () => {
   });
 
   it("does NOT draw a polyline when showRoute=true but only one pin", () => {
-    render(<Map showRoute pins={[{ lat: 40.7, lng: -74.0 }]} />);
+    render(<MapView showRoute pins={[{ lat: 40.7, lng: -74.0 }]} />);
     expect(mapInstance.addSource).not.toHaveBeenCalled();
     expect(mapInstance.addLayer).not.toHaveBeenCalled();
   });
 
   it("filters out pins with non-finite coordinates", () => {
     render(
-      <Map
+      <MapView
         pins={[
           { lat: 40.7, lng: -74.0 },
           { lat: Number.NaN, lng: -74.0 },
@@ -203,7 +203,7 @@ describe("Map", () => {
     const onPinClick = vi.fn();
     const user = userEvent.setup();
     render(
-      <Map
+      <MapView
         onPinClick={onPinClick}
         pins={[
           { id: "pin-a", lat: 40.7, lng: -74.0 },
@@ -220,7 +220,7 @@ describe("Map", () => {
     delete process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
     // Re-import Map so it picks up the now-unset env at module scope.
     vi.resetModules();
-    const { Map: MapFresh } = await import("./Map");
+    const { MapView: MapFresh } = await import("./Map");
     render(<MapFresh pins={[{ lat: 40.7, lng: -74.0 }]} />);
     expect(screen.getByTestId("map-unavailable")).toBeInTheDocument();
     process.env.NEXT_PUBLIC_MAPBOX_TOKEN = original;
@@ -228,7 +228,7 @@ describe("Map", () => {
 
   it("sets up an interval for auto-refresh and clears it on unmount", () => {
     vi.useFakeTimers();
-    const { unmount } = render(<Map pins={[]} autoRefreshMs={30_000} />);
+    const { unmount } = render(<MapView pins={[]} autoRefreshMs={30_000} />);
     expect(routerRefreshMock).not.toHaveBeenCalled();
     vi.advanceTimersByTime(30_000);
     expect(routerRefreshMock).toHaveBeenCalledTimes(1);

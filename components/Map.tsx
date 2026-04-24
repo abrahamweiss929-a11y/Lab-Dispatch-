@@ -60,7 +60,7 @@ function isFinitePin(p: MapPin): boolean {
   );
 }
 
-export function Map({
+export function MapView({
   pins,
   showRoute = false,
   autoRefreshMs,
