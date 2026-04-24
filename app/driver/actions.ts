@@ -36,8 +36,19 @@ export async function completeRouteAction(routeId: string): Promise<void> {
   if (route.driverId !== session.userId) {
     throw new Error("not your route");
   }
+  // Idempotent edge: the driver already finished (e.g. back button, double
+  // submit, second tab). No state change needed — just bounce them home.
+  if (route.status === "completed") {
+    redirect("/driver");
+  }
+  // Unexpected-but-recoverable: the route never started. Log so we can spot
+  // the trigger, then bounce home rather than crashing the UI.
   if (route.status !== "active") {
-    throw new Error(`route ${routeId} is not active`);
+    // eslint-disable-next-line no-console
+    console.warn(
+      `completeRouteAction: route ${routeId} has unexpected status "${route.status}"; bouncing to /driver`,
+    );
+    redirect("/driver");
   }
   const stops = await storage.listStops(routeId);
   if (stops.some((s) => !s.pickedUpAt)) {

@@ -126,8 +126,16 @@ export default async function DriverRoutePage({
             </ul>
           )}
 
-          {allPickedUp && session.role === "driver" ? (
+          {allPickedUp &&
+          session.role === "driver" &&
+          route.status === "active" ? (
             <CompleteRouteButton routeId={route.id} />
+          ) : null}
+
+          {route.status === "completed" ? (
+            <p className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4 text-center text-sm text-green-800">
+              This route is already completed.
+            </p>
           ) : null}
 
           {!allPickedUp && stopViews.length > 0 ? (

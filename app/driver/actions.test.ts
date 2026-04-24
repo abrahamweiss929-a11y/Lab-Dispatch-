@@ -174,6 +174,40 @@ describe("driver server actions — completeRouteAction", () => {
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
   });
+
+  it("redirects home without error when the route is already completed", async () => {
+    const route = await seedRouteForDriver("driver-1");
+    const s1 = await seedStopOnRoute(route.id);
+    await storageMock.updateRouteStatus(route.id, "active");
+    await storageMock.markStopArrived(s1.id);
+    await storageMock.markStopPickedUp(s1.id);
+    await storageMock.updateRouteStatus(route.id, "completed");
+
+    const spy = vi.spyOn(storageMock, "updateRouteStatus");
+    await expect(completeRouteAction(route.id)).rejects.toThrow(
+      /REDIRECT:\/driver/,
+    );
+    // No second transition — it was already completed.
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("redirects home without error when the route is still pending, and logs a warning", async () => {
+    const route = await seedRouteForDriver("driver-1");
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const updateSpy = vi.spyOn(storageMock, "updateRouteStatus");
+
+    await expect(completeRouteAction(route.id)).rejects.toThrow(
+      /REDIRECT:\/driver/,
+    );
+    expect(updateSpy).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('unexpected status "pending"'),
+    );
+
+    warnSpy.mockRestore();
+    updateSpy.mockRestore();
+  });
 });
 
 describe("driver server actions — recordLocationAction", () => {
