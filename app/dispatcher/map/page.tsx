@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DispatcherLayout } from "@/components/DispatcherLayout";
+import { MapView, type MapPin } from "@/components/Map";
 import { getServices } from "@/interfaces";
 import { formatShortDateTime } from "@/lib/dates";
 import { requireDispatcherSession } from "@/lib/require-dispatcher";
@@ -18,13 +19,23 @@ export default async function DispatcherMapPage() {
     (d) => d.active && !reportingDriverIds.has(d.profileId),
   );
 
+  const mapPins: MapPin[] = locations.map((loc) => {
+    const driver = driverById.get(loc.driverId);
+    const name = driver?.fullName ?? "Unknown driver";
+    return {
+      id: loc.id,
+      lat: loc.lat,
+      lng: loc.lng,
+      color: "#16a34a",
+      popup: `${name}\nLast ping ${formatShortDateTime(loc.recordedAt)}`,
+    };
+  });
+
   return (
     <DispatcherLayout title="Driver map">
-      <aside className="mb-6 rounded border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-        This becomes a real map when <code>MAPBOX_TOKEN</code> is wired. For
-        now, it shows the last-known location of every driver who pinged in
-        the past 15 minutes.
-      </aside>
+      <div className="mb-6">
+        <MapView pins={mapPins} height="420px" autoRefreshMs={30_000} />
+      </div>
 
       {locations.length === 0 ? (
         <p className="rounded border border-dashed border-gray-300 p-6 text-sm text-gray-500">
