@@ -19,7 +19,9 @@ export async function requireDispatcherSession(): Promise<SessionCookieValue> {
   const session = await getSession();
   if (
     session === null ||
-    (session.role !== "dispatcher" && session.role !== "admin")
+    (session.role !== "dispatcher" &&
+      session.role !== "admin" &&
+      session.role !== "office")
   ) {
     redirect("/login");
   }

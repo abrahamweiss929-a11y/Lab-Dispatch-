@@ -42,7 +42,11 @@ export interface EditRouteContext {
  *     so lexicographic compare matches chronological compare.
  */
 export function canDispatcherEditRoute(ctx: EditRouteContext): boolean {
-  if (ctx.role !== "dispatcher" && ctx.role !== "admin") {
+  if (
+    ctx.role !== "dispatcher" &&
+    ctx.role !== "admin" &&
+    ctx.role !== "office"
+  ) {
     return false;
   }
   const today = ctx.today ?? todayIso();

@@ -1,4 +1,39 @@
-export type UserRole = "driver" | "dispatcher" | "admin";
+export type UserRole = "driver" | "dispatcher" | "admin" | "office";
+
+/**
+ * "office" is the role assigned to users who accept an invite. They
+ * have the same authority as a "dispatcher" — read pickup requests,
+ * read/edit routes — but the role name reflects their organizational
+ * position (front-desk staff at a partner office) rather than the
+ * legacy "dispatcher" label that was used for the same access in the
+ * single-tenant prototype. Backward compat: existing "dispatcher"
+ * accounts continue to work unchanged.
+ */
+export const OFFICE_LIKE_ROLES: readonly UserRole[] = ["dispatcher", "office"];
+
+export type InviteStatus = "pending" | "accepted" | "revoked" | "expired";
+
+/**
+ * One row per user invitation. The token is the only secret the recipient
+ * needs to accept; it is generated server-side and never re-displayed
+ * after creation. `expiresAt` defaults to 7 days; `acceptedAt` is set
+ * when the recipient signs in via /invite/[token]. Roles allowed at
+ * invite time: "office" (default) and "driver". Admin invites are not
+ * supported through this flow — admins are bootstrapped out-of-band.
+ */
+export interface Invite {
+  id: string;
+  email: string;
+  /** Only "office" and "driver" are valid invite roles. */
+  role: "office" | "driver";
+  token: string;
+  status: InviteStatus;
+  invitedByProfileId: string;
+  createdAt: string;
+  expiresAt: string;
+  acceptedAt?: string;
+  acceptedByProfileId?: string;
+}
 
 export interface Driver {
   profileId: string;

@@ -21,6 +21,7 @@ describe("PUBLIC_PATH_PREFIXES", () => {
       "/login",
       "/logout",
       "/pickup/",
+      "/invite/",
       "/api/",
       "/_next/",
       "/favicon",
@@ -34,6 +35,7 @@ describe("PROTECTED_TREES", () => {
       driver: "/driver",
       dispatcher: "/dispatcher",
       admin: "/admin",
+      office: "/dispatcher",
     });
   });
 });
@@ -149,6 +151,36 @@ describe("evaluateAccess — dispatcher role", () => {
       action: "redirect",
       to: "/dispatcher",
     });
+  });
+});
+
+describe("evaluateAccess — office role", () => {
+  it("allows /dispatcher (office shares dispatcher tree)", () => {
+    expect(evaluateAccess({ pathname: "/dispatcher", role: "office" })).toEqual(
+      { action: "allow" },
+    );
+    expect(
+      evaluateAccess({ pathname: "/dispatcher/queue", role: "office" }),
+    ).toEqual({ action: "allow" });
+  });
+
+  it("redirects office hitting /driver or /admin to /dispatcher", () => {
+    expect(evaluateAccess({ pathname: "/driver", role: "office" })).toEqual({
+      action: "redirect",
+      to: "/dispatcher",
+    });
+    expect(evaluateAccess({ pathname: "/admin", role: "office" })).toEqual({
+      action: "redirect",
+      to: "/dispatcher",
+    });
+  });
+});
+
+describe("evaluateAccess — /invite is a public path", () => {
+  it("allows anonymous hits to /invite/* without redirect", () => {
+    expect(
+      evaluateAccess({ pathname: "/invite/some-token", role: null }),
+    ).toEqual({ action: "allow" });
   });
 });
 

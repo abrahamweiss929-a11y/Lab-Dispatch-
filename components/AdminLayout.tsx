@@ -29,6 +29,7 @@ export function AdminLayout({ title, children }: AdminLayoutProps) {
           <AdminNavLink href="/admin/drivers">Drivers</AdminNavLink>
           <AdminNavLink href="/admin/doctors">Doctors</AdminNavLink>
           <AdminNavLink href="/admin/offices">Offices</AdminNavLink>
+          <AdminNavLink href="/admin/users">Users</AdminNavLink>
           <AdminNavLink href="/admin/payroll">Payroll</AdminNavLink>
         </nav>
         <div className="hidden p-4 lg:block">

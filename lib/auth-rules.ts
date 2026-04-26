@@ -4,6 +4,7 @@ export const PUBLIC_PATH_PREFIXES: readonly string[] = [
   "/login",
   "/logout",
   "/pickup/",
+  "/invite/",
   "/api/",
   "/_next/",
   "/favicon",
@@ -13,6 +14,9 @@ export const PROTECTED_TREES: Record<UserRole, string> = {
   driver: "/driver",
   dispatcher: "/dispatcher",
   admin: "/admin",
+  // `office` users land on the same dispatcher tree — same authority,
+  // different label. See UserRole comment in lib/types.ts.
+  office: "/dispatcher",
 };
 
 export interface EvaluateAccessInput {
@@ -86,9 +90,9 @@ export function evaluateAccess(input: EvaluateAccessInput): AccessDecision {
     return { action: "allow" };
   }
 
-  if (role === "dispatcher") {
+  if (role === "dispatcher" || role === "office") {
     if (underDispatcher) return { action: "allow" };
-    return { action: "redirect", to: landingPathFor("dispatcher") };
+    return { action: "redirect", to: landingPathFor(role) };
   }
 
   // role === "driver"
