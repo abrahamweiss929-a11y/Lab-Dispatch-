@@ -12,6 +12,22 @@ exception
   when duplicate_object then null;
 end $$;
 
+-- Phase D: invite-based onboarding adds an 'office' role with the same
+-- authority as 'dispatcher'. Existing 'dispatcher' rows continue to work
+-- — backward compat is preserved. `alter type ... add value if not
+-- exists` is idempotent across reruns.
+do $$ begin
+  alter type public.user_role add value if not exists 'office';
+exception
+  when duplicate_object then null;
+end $$;
+
+do $$ begin
+  create type public.invite_status as enum ('pending', 'accepted', 'revoked', 'expired');
+exception
+  when duplicate_object then null;
+end $$;
+
 do $$ begin
   create type public.request_channel as enum ('sms', 'email', 'web', 'manual');
 exception
@@ -123,6 +139,28 @@ create table if not exists public.driver_locations (
   recorded_at timestamptz not null default now()
 );
 
+-- Phase D: invite-based onboarding. One row per outgoing invitation;
+-- the recipient hits /invite/{token} to accept. `email` is normalized
+-- lowercase at write time. Tokens are 32 bytes of crypto randomness
+-- (base64url-encoded; 43 chars). `expires_at` defaults to created_at +
+-- 7 days. `accepted_by_profile_id` is set when the recipient signs in
+-- and is the auth.users id their session resolves to.
+create table if not exists public.invites (
+  id uuid primary key default gen_random_uuid(),
+  email text not null,
+  role public.user_role not null check (role in ('office', 'driver')),
+  token text not null unique,
+  status public.invite_status not null default 'pending',
+  invited_by_profile_id uuid not null references public.profiles(id) on delete restrict,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  accepted_at timestamptz,
+  accepted_by_profile_id uuid references public.profiles(id) on delete set null
+);
+
+create index if not exists idx_invites_token on public.invites (token);
+create index if not exists idx_invites_email on public.invites (email);
+
 create table if not exists public.messages (
   id uuid primary key default gen_random_uuid(),
   channel public.request_channel not null,
@@ -184,6 +222,8 @@ alter table public.driver_locations enable row level security;
 
 alter table public.messages enable row level security;
 
+alter table public.invites enable row level security;
+
 -- BEGIN RLS POLICIES --
 -- Per-table Row Level Security policies. Re-runnable: every create policy is
 -- preceded by a drop policy if exists with the same name. The service-role
@@ -223,7 +263,7 @@ create policy profiles_select_self on public.profiles
 drop policy if exists profiles_select_dispatcher_admin on public.profiles;
 create policy profiles_select_dispatcher_admin on public.profiles
   for select to authenticated
-  using (public.current_role() in ('dispatcher', 'admin'));
+  using (public.current_role() in ('dispatcher', 'admin', 'office'));
 
 drop policy if exists profiles_update_self on public.profiles;
 create policy profiles_update_self on public.profiles
@@ -298,7 +338,7 @@ create policy drivers_select_self on public.drivers
 drop policy if exists drivers_select_dispatcher_admin on public.drivers;
 create policy drivers_select_dispatcher_admin on public.drivers
   for select to authenticated
-  using (public.current_role() in ('dispatcher', 'admin'));
+  using (public.current_role() in ('dispatcher', 'admin', 'office'));
 
 drop policy if exists drivers_insert_admin on public.drivers;
 create policy drivers_insert_admin on public.drivers
@@ -322,7 +362,7 @@ drop policy if exists pickup_requests_select_dispatcher_admin on public.pickup_r
 create policy pickup_requests_select_dispatcher_admin on public.pickup_requests
   for select to authenticated
   using (
-    public.current_role() in ('dispatcher', 'admin')
+    public.current_role() in ('dispatcher', 'admin', 'office')
     and (created_at >= now() - interval '30 days' or status <> 'completed')
   );
 
@@ -341,13 +381,13 @@ create policy pickup_requests_select_driver on public.pickup_requests
 drop policy if exists pickup_requests_insert_dispatcher_admin on public.pickup_requests;
 create policy pickup_requests_insert_dispatcher_admin on public.pickup_requests
   for insert to authenticated
-  with check (public.current_role() in ('dispatcher', 'admin'));
+  with check (public.current_role() in ('dispatcher', 'admin', 'office'));
 
 drop policy if exists pickup_requests_update_dispatcher_admin on public.pickup_requests;
 create policy pickup_requests_update_dispatcher_admin on public.pickup_requests
   for update to authenticated
-  using (public.current_role() in ('dispatcher', 'admin'))
-  with check (public.current_role() in ('dispatcher', 'admin'));
+  using (public.current_role() in ('dispatcher', 'admin', 'office'))
+  with check (public.current_role() in ('dispatcher', 'admin', 'office'));
 
 drop policy if exists pickup_requests_delete_admin on public.pickup_requests;
 create policy pickup_requests_delete_admin on public.pickup_requests
@@ -365,7 +405,7 @@ drop policy if exists routes_select_dispatcher_admin on public.routes;
 create policy routes_select_dispatcher_admin on public.routes
   for select to authenticated
   using (
-    public.current_role() in ('dispatcher', 'admin')
+    public.current_role() in ('dispatcher', 'admin', 'office')
     and (route_date >= (current_date - interval '30 days')::date or status <> 'completed')
   );
 
@@ -377,13 +417,13 @@ create policy routes_select_admin on public.routes
 drop policy if exists routes_insert_dispatcher_admin on public.routes;
 create policy routes_insert_dispatcher_admin on public.routes
   for insert to authenticated
-  with check (public.current_role() in ('dispatcher', 'admin'));
+  with check (public.current_role() in ('dispatcher', 'admin', 'office'));
 
 drop policy if exists routes_update_dispatcher_admin on public.routes;
 create policy routes_update_dispatcher_admin on public.routes
   for update to authenticated
-  using (public.current_role() in ('dispatcher', 'admin'))
-  with check (public.current_role() in ('dispatcher', 'admin'));
+  using (public.current_role() in ('dispatcher', 'admin', 'office'))
+  with check (public.current_role() in ('dispatcher', 'admin', 'office'));
 
 drop policy if exists routes_update_driver_own on public.routes;
 create policy routes_update_driver_own on public.routes
@@ -411,18 +451,18 @@ create policy stops_select_driver on public.stops
 drop policy if exists stops_select_dispatcher_admin on public.stops;
 create policy stops_select_dispatcher_admin on public.stops
   for select to authenticated
-  using (public.current_role() in ('dispatcher', 'admin'));
+  using (public.current_role() in ('dispatcher', 'admin', 'office'));
 
 drop policy if exists stops_insert_dispatcher_admin on public.stops;
 create policy stops_insert_dispatcher_admin on public.stops
   for insert to authenticated
-  with check (public.current_role() in ('dispatcher', 'admin'));
+  with check (public.current_role() in ('dispatcher', 'admin', 'office'));
 
 drop policy if exists stops_update_dispatcher_admin on public.stops;
 create policy stops_update_dispatcher_admin on public.stops
   for update to authenticated
-  using (public.current_role() in ('dispatcher', 'admin'))
-  with check (public.current_role() in ('dispatcher', 'admin'));
+  using (public.current_role() in ('dispatcher', 'admin', 'office'))
+  with check (public.current_role() in ('dispatcher', 'admin', 'office'));
 
 drop policy if exists stops_update_driver_own on public.stops;
 create policy stops_update_driver_own on public.stops
@@ -443,7 +483,7 @@ create policy stops_update_driver_own on public.stops
 drop policy if exists stops_delete_dispatcher_admin on public.stops;
 create policy stops_delete_dispatcher_admin on public.stops
   for delete to authenticated
-  using (public.current_role() in ('dispatcher', 'admin'));
+  using (public.current_role() in ('dispatcher', 'admin', 'office'));
 
 -- driver_locations -----------------------------------------------------------
 
@@ -455,7 +495,7 @@ create policy driver_locations_select_self on public.driver_locations
 drop policy if exists driver_locations_select_dispatcher_admin on public.driver_locations;
 create policy driver_locations_select_dispatcher_admin on public.driver_locations
   for select to authenticated
-  using (public.current_role() in ('dispatcher', 'admin'));
+  using (public.current_role() in ('dispatcher', 'admin', 'office'));
 
 drop policy if exists driver_locations_insert_self on public.driver_locations;
 create policy driver_locations_insert_self on public.driver_locations
@@ -478,7 +518,7 @@ create policy driver_locations_delete_admin on public.driver_locations
 drop policy if exists messages_select_dispatcher_admin on public.messages;
 create policy messages_select_dispatcher_admin on public.messages
   for select to authenticated
-  using (public.current_role() in ('dispatcher', 'admin'));
+  using (public.current_role() in ('dispatcher', 'admin', 'office'));
 
 drop policy if exists messages_insert_admin on public.messages;
 create policy messages_insert_admin on public.messages
@@ -488,11 +528,38 @@ create policy messages_insert_admin on public.messages
 drop policy if exists messages_update_dispatcher_admin on public.messages;
 create policy messages_update_dispatcher_admin on public.messages
   for update to authenticated
-  using (public.current_role() in ('dispatcher', 'admin'))
-  with check (public.current_role() in ('dispatcher', 'admin'));
+  using (public.current_role() in ('dispatcher', 'admin', 'office'))
+  with check (public.current_role() in ('dispatcher', 'admin', 'office'));
 
 drop policy if exists messages_delete_admin on public.messages;
 create policy messages_delete_admin on public.messages
+  for delete to authenticated
+  using (public.current_role() = 'admin');
+
+-- invites --------------------------------------------------------------------
+-- Only admins may create / list / revoke invites. Anonymous traffic at
+-- /invite/{token} reaches the row through the service-role server
+-- client (which bypasses RLS); RLS here is only the secondary check
+-- against authenticated misuse.
+
+drop policy if exists invites_select_admin on public.invites;
+create policy invites_select_admin on public.invites
+  for select to authenticated
+  using (public.current_role() = 'admin');
+
+drop policy if exists invites_insert_admin on public.invites;
+create policy invites_insert_admin on public.invites
+  for insert to authenticated
+  with check (public.current_role() = 'admin');
+
+drop policy if exists invites_update_admin on public.invites;
+create policy invites_update_admin on public.invites
+  for update to authenticated
+  using (public.current_role() = 'admin')
+  with check (public.current_role() = 'admin');
+
+drop policy if exists invites_delete_admin on public.invites;
+create policy invites_delete_admin on public.invites
   for delete to authenticated
   using (public.current_role() = 'admin');
 
