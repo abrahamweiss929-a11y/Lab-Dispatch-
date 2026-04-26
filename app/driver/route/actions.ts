@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getServices } from "@/interfaces";
+import { formatShortDateTime } from "@/lib/dates";
 import { canDriverCheckInStop } from "@/lib/permissions";
 import { requireDriverSession } from "@/lib/require-driver";
 import type { SessionCookieValue } from "@/lib/session";
@@ -48,9 +49,37 @@ export async function arriveAtStopAction(stopId: string): Promise<void> {
 
 export async function pickupStopAction(stopId: string): Promise<void> {
   const session = await requireDriverSession();
-  const { route } = await loadActiveStopForDriver(stopId, session);
-  const storage = getServices().storage;
+  const { stop, route } = await loadActiveStopForDriver(stopId, session);
+  const services = getServices();
+  const storage = services.storage;
   await storage.markStopPickedUp(stopId);
+
+  // Best-effort SMS notification to the originating office. Silent
+  // no-op when there's no office or no phone on file. Failures are
+  // swallowed — the pickup has already succeeded; a Twilio outage must
+  // not roll it back.
+  try {
+    const request = await storage.getPickupRequest(stop.pickupRequestId);
+    const officeId = request?.officeId;
+    if (officeId !== undefined) {
+      const office = await storage.getOffice(officeId);
+      if (
+        office !== null &&
+        office !== undefined &&
+        office.phone !== undefined &&
+        office.phone.length > 0
+      ) {
+        const pickedUpAt = formatShortDateTime(new Date().toISOString());
+        await services.sms.sendSms({
+          to: office.phone,
+          body: `Lab Dispatch: samples picked up from ${office.name} at ${pickedUpAt}. En route to lab.`,
+        });
+      }
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("pickupStopAction: notification SMS failed", err);
+  }
 
   // Auto-complete the route when every stop on it is now picked up.
   // Isolated in try/catch so an auto-complete failure is logged but does

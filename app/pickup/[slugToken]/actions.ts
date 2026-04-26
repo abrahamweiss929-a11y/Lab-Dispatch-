@@ -131,5 +131,20 @@ export async function submitPickupRequestAction(
     }
   }
 
+  // Best-effort SMS confirmation. Silent no-op when the office has no
+  // phone on file. Failures are swallowed for the same reason as email:
+  // the pickup is already persisted; a Twilio outage shouldn't roll it
+  // back or surface as a user-facing error.
+  if (office.phone !== undefined && office.phone.length > 0) {
+    try {
+      await services.sms.sendSms({
+        to: office.phone,
+        body: `Lab Dispatch: pickup request received for ${office.name}. Driver will arrive ${etaText}. Reply STOP to opt out.`,
+      });
+    } catch {
+      // Intentionally swallowed.
+    }
+  }
+
   return { status: "ok", requestId: request.id, etaText };
 }
