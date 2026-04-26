@@ -27,11 +27,13 @@ import {
   createRouteAction,
   moveStopDownAction,
   moveStopUpAction,
+  optimizeRouteAction,
   removeStopAction,
   resetRouteAction,
   startRouteAction,
 } from "./actions";
 import { INITIAL_ADMIN_FORM_STATE } from "@/lib/admin-form";
+import { __resetGoogleMapsCache } from "@/lib/google-maps";
 import { storageMock, resetStorageMock } from "@/mocks/storage";
 
 function fd(entries: Record<string, string>): FormData {
@@ -596,6 +598,241 @@ describe("dispatcher/routes server actions", () => {
       const spy = vi.spyOn(storageMock, "updateRouteStatus");
       await expect(resetRouteAction(route.id)).rejects.toThrow(
         /cannot edit past route/,
+      );
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+  });
+
+  describe("optimizeRouteAction", () => {
+    function jsonResponse(body: unknown) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => body,
+        text: async () => JSON.stringify(body),
+      } as unknown as Response;
+    }
+
+    async function seedFourGeocodedStops() {
+      const driver = await seedActiveDriver();
+      const route = await storageMock.createRoute({
+        driverId: driver.profileId,
+        routeDate: "2099-12-31",
+      });
+      const offices = await Promise.all([
+        storageMock.createOffice({
+          name: "A",
+          slug: "a",
+          pickupUrlToken: "tok-a",
+          address: ADDRESS,
+          active: true,
+          lat: 40.0,
+          lng: -74.0,
+        }),
+        storageMock.createOffice({
+          name: "B",
+          slug: "b",
+          pickupUrlToken: "tok-b",
+          address: ADDRESS,
+          active: true,
+          lat: 40.1,
+          lng: -74.1,
+        }),
+        storageMock.createOffice({
+          name: "C",
+          slug: "c",
+          pickupUrlToken: "tok-c",
+          address: ADDRESS,
+          active: true,
+          lat: 40.2,
+          lng: -74.2,
+        }),
+        storageMock.createOffice({
+          name: "D",
+          slug: "d",
+          pickupUrlToken: "tok-d",
+          address: ADDRESS,
+          active: true,
+          lat: 40.3,
+          lng: -74.3,
+        }),
+      ]);
+      const stops = [];
+      for (const office of offices) {
+        const req = await storageMock.createPickupRequest({
+          officeId: office.id,
+          channel: "manual",
+          urgency: "routine",
+        });
+        stops.push(await storageMock.assignRequestToRoute(route.id, req.id));
+      }
+      return { route, stops };
+    }
+
+    beforeEach(() => {
+      __resetGoogleMapsCache();
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      process.env.GOOGLE_MAPS_API_KEY = "test-key";
+    });
+
+    it("returns not_enough_stops when fewer than 3 remain", async () => {
+      const office = await seedOffice();
+      const driver = await seedActiveDriver();
+      const route = await storageMock.createRoute({
+        driverId: driver.profileId,
+        routeDate: "2099-12-31",
+      });
+      const req = await storageMock.createPickupRequest({
+        officeId: office.id,
+        channel: "manual",
+        urgency: "routine",
+      });
+      await storageMock.assignRequestToRoute(route.id, req.id);
+
+      const result = await optimizeRouteAction(route.id);
+      expect(result.status).toBe("not_enough_stops");
+    });
+
+    it("returns missing_coordinates when an office lacks lat/lng", async () => {
+      const driver = await seedActiveDriver();
+      const route = await storageMock.createRoute({
+        driverId: driver.profileId,
+        routeDate: "2099-12-31",
+      });
+      // Three offices, second is missing coords.
+      const o1 = await storageMock.createOffice({
+        name: "A",
+        slug: "a",
+        pickupUrlToken: "ta",
+        address: ADDRESS,
+        active: true,
+        lat: 40.0,
+        lng: -74.0,
+      });
+      const o2 = await storageMock.createOffice({
+        name: "B",
+        slug: "b",
+        pickupUrlToken: "tb",
+        address: ADDRESS,
+        active: true,
+      });
+      const o3 = await storageMock.createOffice({
+        name: "C",
+        slug: "c",
+        pickupUrlToken: "tc",
+        address: ADDRESS,
+        active: true,
+        lat: 40.2,
+        lng: -74.2,
+      });
+      for (const o of [o1, o2, o3]) {
+        const r = await storageMock.createPickupRequest({
+          officeId: o.id,
+          channel: "manual",
+          urgency: "routine",
+        });
+        await storageMock.assignRequestToRoute(route.id, r.id);
+      }
+
+      const result = await optimizeRouteAction(route.id);
+      expect(result.status).toBe("missing_coordinates");
+    });
+
+    it("returns unavailable when Google API has no key", async () => {
+      delete process.env.GOOGLE_MAPS_API_KEY;
+      const { route } = await seedFourGeocodedStops();
+      const result = await optimizeRouteAction(route.id);
+      expect(result.status).toBe("unavailable");
+    });
+
+    it("returns already_optimal and does not reorder when permutation is identity", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(
+          jsonResponse({
+            status: "OK",
+            routes: [
+              {
+                waypoint_order: [0, 1],
+                legs: [
+                  { duration_in_traffic: { value: 100 } },
+                  { duration_in_traffic: { value: 100 } },
+                  { duration_in_traffic: { value: 100 } },
+                ],
+              },
+            ],
+          }),
+        ),
+      );
+      const { route, stops } = await seedFourGeocodedStops();
+      const before = (await storageMock.listStops(route.id)).map((s) => s.id);
+      const result = await optimizeRouteAction(route.id);
+      expect(result.status).toBe("already_optimal");
+      const after = (await storageMock.listStops(route.id)).map((s) => s.id);
+      expect(after).toEqual(before);
+      vi.unstubAllGlobals();
+    });
+
+    it("reorders stops when Google returns a non-identity permutation", async () => {
+      // Optimize: waypoint_order = [1, 0] swaps the two middle stops (B/C → C/B).
+      // Distance Matrix calls (baseline drive times) — return 600s per leg.
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockImplementation(async (input: URL) => {
+          const url = input.toString();
+          if (url.includes("/directions/json")) {
+            return jsonResponse({
+              status: "OK",
+              routes: [
+                {
+                  waypoint_order: [1, 0],
+                  legs: [
+                    { duration_in_traffic: { value: 100 } },
+                    { duration_in_traffic: { value: 100 } },
+                    { duration_in_traffic: { value: 100 } },
+                  ],
+                },
+              ],
+            });
+          }
+          // Distance Matrix fallback for baseline computation.
+          return jsonResponse({
+            status: "OK",
+            rows: [
+              {
+                elements: [
+                  { status: "OK", duration_in_traffic: { value: 600 } },
+                ],
+              },
+            ],
+          });
+        }),
+      );
+      const { route, stops } = await seedFourGeocodedStops();
+      const idsBefore = stops.map((s) => s.id);
+      const result = await optimizeRouteAction(route.id);
+      expect(result.status).toBe("reordered");
+      const after = await storageMock.listStops(route.id);
+      const afterIds = after.map((s) => s.id);
+      // Origin (stops[0]) and destination (stops[3]) are pinned; middle stops
+      // [1] and [2] swap.
+      expect(afterIds[0]).toBe(idsBefore[0]);
+      expect(afterIds[1]).toBe(idsBefore[2]);
+      expect(afterIds[2]).toBe(idsBefore[1]);
+      expect(afterIds[3]).toBe(idsBefore[3]);
+      // Positions should be 1..4 contiguous.
+      expect(after.map((s) => s.position)).toEqual([1, 2, 3, 4]);
+      vi.unstubAllGlobals();
+    });
+
+    it("bails out on auth failure", async () => {
+      requireDispatcherSessionMock.mockImplementationOnce(() => {
+        throw new Error("REDIRECT:/login");
+      });
+      const spy = vi.spyOn(storageMock, "reorderStops");
+      await expect(optimizeRouteAction("r")).rejects.toThrow(
+        /REDIRECT:\/login/,
       );
       expect(spy).not.toHaveBeenCalled();
       spy.mockRestore();

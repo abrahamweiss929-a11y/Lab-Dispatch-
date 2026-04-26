@@ -19,6 +19,10 @@ interface StopCardProps {
   status: StopCardStatus;
   isCurrent: boolean;
   canCheckIn: boolean;
+  /** "12m" — time to drive from previous point. Hidden when undefined. */
+  driveLabel?: string;
+  /** "1:30 PM" — projected arrival time. Hidden when undefined. */
+  etaLabel?: string;
 }
 
 const URGENCY_STYLE: Record<PickupUrgency, string> = {
@@ -57,6 +61,8 @@ export function StopCard({
   status,
   isCurrent,
   canCheckIn,
+  driveLabel,
+  etaLabel,
 }: StopCardProps) {
   const containerCls = [
     "app-card p-4",
@@ -92,6 +98,14 @@ export function StopCard({
           <br />
           {address.city}, {address.state} {address.zip}
         </address>
+      ) : null}
+
+      {driveLabel || etaLabel ? (
+        <p className="mt-2 text-xs font-semibold text-[var(--brand-700)]">
+          {driveLabel ? <span>🚗 {driveLabel}</span> : null}
+          {driveLabel && etaLabel ? <span className="mx-2">·</span> : null}
+          {etaLabel ? <span>ETA {etaLabel}</span> : null}
+        </p>
       ) : null}
 
       {typeof sampleCount === "number" ? (

@@ -5,6 +5,7 @@ import { getServices } from "@/interfaces";
 import { formatDateIsoToShort, todayIso } from "@/lib/dates";
 import { requireDispatcherSession } from "@/lib/require-dispatcher";
 import { AddStopForm } from "./_components/AddStopForm";
+import { OptimizeOrderButton } from "./_components/OptimizeOrderButton";
 import { RouteStatusControls } from "./_components/RouteStatusControls";
 import { StopRow } from "./_components/StopRow";
 
@@ -78,7 +79,12 @@ export default async function RouteDetailPage({
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <section className="lg:col-span-2">
-          <h2 className="mb-3 text-lg font-extrabold">Stops</h2>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-lg font-extrabold">Stops</h2>
+            {route.status !== "completed" && stops.length >= 3 ? (
+              <OptimizeOrderButton routeId={route.id} />
+            ) : null}
+          </div>
           {stops.length === 0 ? (
             <p className="empty-state">
               No stops yet. Use the side pane to assign pending requests.
