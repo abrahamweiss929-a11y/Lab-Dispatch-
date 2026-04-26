@@ -5,6 +5,7 @@ import { submitPickupRequestAction } from "./actions";
 import { resetAllMocks } from "@/interfaces";
 import { storageMock } from "@/mocks/storage";
 import { getSentEmails } from "@/mocks/email";
+import { getSent as getSentSms } from "@/mocks/sms";
 import { pickupFormBucket } from "@/lib/rate-limit";
 
 const ADDRESS = {
@@ -170,6 +171,41 @@ describe("submitPickupRequestAction", () => {
     expect(state.status).toBe("ok");
     expect(getSentEmails()).toHaveLength(0);
     expect(await storageMock.listPickupRequests()).toHaveLength(1);
+  });
+
+  it("sends an SMS confirmation when office.phone is present", async () => {
+    await seedOffice({ phone: "+15551234567" });
+    const state = await submitPickupRequestAction(
+      INITIAL_PICKUP_FORM_STATE,
+      fd({
+        slugToken: "acme-clinic-a1b2c3d4e5f6",
+        notes: "Two samples for routine pickup, back door.",
+        urgency: "routine",
+        sampleCount: "2",
+      }),
+    );
+    expect(state.status).toBe("ok");
+    const sms = getSentSms();
+    expect(sms).toHaveLength(1);
+    expect(sms[0]?.to).toBe("+15551234567");
+    expect(sms[0]?.body).toContain("Acme Clinic");
+    expect(sms[0]?.body).toContain("within about 2 hours");
+    expect(sms[0]?.body).toMatch(/STOP/i);
+  });
+
+  it("sends no SMS when office.phone is absent", async () => {
+    await seedOffice({ email: "x@acme.test" });
+    const state = await submitPickupRequestAction(
+      INITIAL_PICKUP_FORM_STATE,
+      fd({
+        slugToken: "acme-clinic-a1b2c3d4e5f6",
+        notes: "Two samples for routine pickup, back door.",
+        urgency: "routine",
+        sampleCount: "",
+      }),
+    );
+    expect(state.status).toBe("ok");
+    expect(getSentSms()).toHaveLength(0);
   });
 
   it("enforces the 10-per-5-minutes rate limit and persists only 10 requests", async () => {

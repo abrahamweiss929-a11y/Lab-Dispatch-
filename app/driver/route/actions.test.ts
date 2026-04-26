@@ -20,6 +20,7 @@ vi.mock("@/lib/require-driver", () => ({
 
 import { arriveAtStopAction, pickupStopAction } from "./actions";
 import { resetStorageMock, storageMock } from "@/mocks/storage";
+import { getSent as getSentSms, resetSmsMock } from "@/mocks/sms";
 
 async function seedActiveRouteWithStop(
   driverId = "driver-1",
@@ -103,6 +104,7 @@ describe("driver/route server actions — arriveAtStopAction", () => {
 describe("driver/route server actions — pickupStopAction", () => {
   beforeEach(() => {
     resetStorageMock();
+    resetSmsMock();
     revalidatePathMock.mockClear();
     requireDriverSessionMock.mockReset();
     requireDriverSessionMock.mockReturnValue({
@@ -191,6 +193,101 @@ describe("driver/route server actions — pickupStopAction", () => {
     const after = await storageMock.getRoute(route.id);
     expect(after?.status).toBe("active");
     updateRouteStatusSpy.mockRestore();
+  });
+
+  it("sends an SMS to the originating office when phone is on file", async () => {
+    const office = await storageMock.createOffice({
+      name: "Acme Clinic",
+      slug: "acme",
+      pickupUrlToken: "token12345678",
+      address: { street: "1", city: "Princeton", state: "NJ", zip: "08540" },
+      active: true,
+      phone: "+15551234567",
+    });
+    const route = await storageMock.createRoute({
+      driverId: "driver-1",
+      routeDate: "2026-04-22",
+    });
+    const request = await storageMock.createPickupRequest({
+      officeId: office.id,
+      channel: "manual",
+      urgency: "routine",
+    });
+    const stop = await storageMock.assignRequestToRoute(route.id, request.id);
+    await storageMock.updateRouteStatus(route.id, "active");
+    await storageMock.markStopArrived(stop.id);
+
+    await pickupStopAction(stop.id);
+
+    const sms = getSentSms();
+    expect(sms).toHaveLength(1);
+    expect(sms[0]?.to).toBe("+15551234567");
+    expect(sms[0]?.body).toContain("Acme Clinic");
+    expect(sms[0]?.body).toMatch(/picked up/i);
+  });
+
+  it("does not send SMS when the office has no phone", async () => {
+    const office = await storageMock.createOffice({
+      name: "No Phone Clinic",
+      slug: "nophone",
+      pickupUrlToken: "token87654321",
+      address: { street: "1", city: "Princeton", state: "NJ", zip: "08540" },
+      active: true,
+    });
+    const route = await storageMock.createRoute({
+      driverId: "driver-1",
+      routeDate: "2026-04-22",
+    });
+    const request = await storageMock.createPickupRequest({
+      officeId: office.id,
+      channel: "manual",
+      urgency: "routine",
+    });
+    const stop = await storageMock.assignRequestToRoute(route.id, request.id);
+    await storageMock.updateRouteStatus(route.id, "active");
+    await storageMock.markStopArrived(stop.id);
+
+    await pickupStopAction(stop.id);
+
+    expect(getSentSms()).toHaveLength(0);
+  });
+
+  it("swallows SMS failures so the pickup still succeeds", async () => {
+    const office = await storageMock.createOffice({
+      name: "Acme",
+      slug: "acme2",
+      pickupUrlToken: "tokenabcd1234",
+      address: { street: "1", city: "Princeton", state: "NJ", zip: "08540" },
+      active: true,
+      phone: "+15551234567",
+    });
+    const route = await storageMock.createRoute({
+      driverId: "driver-1",
+      routeDate: "2026-04-22",
+    });
+    const request = await storageMock.createPickupRequest({
+      officeId: office.id,
+      channel: "manual",
+      urgency: "routine",
+    });
+    const stop = await storageMock.assignRequestToRoute(route.id, request.id);
+    await storageMock.updateRouteStatus(route.id, "active");
+    await storageMock.markStopArrived(stop.id);
+
+    // Force an SMS failure by corrupting the office lookup transiently.
+    const getOfficeSpy = vi
+      .spyOn(storageMock, "getOffice")
+      .mockRejectedValueOnce(new Error("transient failure"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await pickupStopAction(stop.id);
+
+    const after = await storageMock.getStop(stop.id);
+    expect(after?.pickedUpAt).toBeTruthy();
+    expect(getSentSms()).toHaveLength(0);
+
+    getOfficeSpy.mockRestore();
+    errorSpy.mockRestore();
   });
 
   it("rejects an admin session attempting to pickup on behalf of a driver", async () => {
