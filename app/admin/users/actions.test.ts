@@ -31,6 +31,7 @@ import {
   listInvites,
   resetInviteStore,
 } from "@/lib/invites-store";
+import { getSentEmails, resetEmailMock } from "@/mocks/email";
 
 function fd(entries: Record<string, string>): FormData {
   const form = new FormData();
@@ -43,6 +44,7 @@ function fd(entries: Record<string, string>): FormData {
 describe("admin/users server actions — createInviteAction", () => {
   beforeEach(() => {
     resetInviteStore();
+    resetEmailMock();
     revalidatePathMock.mockClear();
     redirectMock.mockClear();
     requireAdminSessionMock.mockReset();
@@ -104,11 +106,56 @@ describe("admin/users server actions — createInviteAction", () => {
     ).rejects.toThrow(/REDIRECT:\/login/);
     expect(listInvites()).toHaveLength(0);
   });
+
+  it("sends an invite email with the absolute /invite/{token} URL", async () => {
+    const result = await createInviteAction(
+      INITIAL_CREATE_INVITE_STATE,
+      fd({ email: "newhire@example.com", role: "office" }),
+    );
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+
+    const sent = getSentEmails();
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.to).toBe("newhire@example.com");
+    expect(sent[0]?.subject).toBe("You've been invited to Lab Dispatch");
+    expect(sent[0]?.textBody).toContain(
+      `https://labdispatch.app/invite/${result.invite.token}`,
+    );
+    expect(sent[0]?.textBody).toContain("office staff");
+    // HTML version is also sent.
+    expect(sent[0]?.htmlBody).toContain(
+      `https://labdispatch.app/invite/${result.invite.token}`,
+    );
+  });
+
+  it("returns ok even when the invite email send throws (failure isolated)", async () => {
+    // Force the email mock to fail by passing an invalid email — but
+    // the validation rejects it earlier. Instead, we patch the email
+    // service for one call.
+    const services = (await import("@/interfaces")).getServices();
+    const original = services.email.sendEmail;
+    services.email.sendEmail = async () => {
+      throw new Error("Postmark down");
+    };
+    try {
+      const result = await createInviteAction(
+        INITIAL_CREATE_INVITE_STATE,
+        fd({ email: "newhire@example.com", role: "driver" }),
+      );
+      expect(result.status).toBe("ok");
+      // Invite still persisted despite email failure
+      expect(listInvites()).toHaveLength(1);
+    } finally {
+      services.email.sendEmail = original;
+    }
+  });
 });
 
 describe("admin/users server actions — revokeInviteAction", () => {
   beforeEach(() => {
     resetInviteStore();
+    resetEmailMock();
     revalidatePathMock.mockClear();
     requireAdminSessionMock.mockReset();
     requireAdminSessionMock.mockReturnValue({

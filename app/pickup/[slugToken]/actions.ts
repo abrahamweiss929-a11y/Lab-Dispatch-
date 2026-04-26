@@ -1,6 +1,7 @@
 "use server";
 
 import { getServices } from "@/interfaces";
+import { buildPickupConfirmation } from "@/lib/email-templates";
 import { estimateEtaText } from "@/lib/eta";
 import { parseSlugToken } from "@/lib/parse-slug-token";
 import { pickupFormBucket } from "@/lib/rate-limit";
@@ -121,10 +122,17 @@ export async function submitPickupRequestAction(
   // is not rolled back on a transient email outage.
   if (office.email !== undefined && office.email.length > 0) {
     try {
+      const tpl = buildPickupConfirmation({
+        officeName: office.name,
+        etaText,
+        notes,
+        sampleCount,
+      });
       await services.email.sendEmail({
         to: office.email,
-        subject: `Pickup request received — ${office.name}`,
-        textBody: `We got your request. ETA: ${etaText}. Notes: ${notes}`,
+        subject: tpl.subject,
+        textBody: tpl.textBody,
+        htmlBody: tpl.htmlBody,
       });
     } catch {
       // Intentionally swallowed; the request is already persisted.

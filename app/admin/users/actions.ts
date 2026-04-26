@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getServices } from "@/interfaces";
+import { buildInviteEmail } from "@/lib/email-templates";
 import { isValidInviteEmail } from "@/lib/invites";
 import {
   createInvite as createInviteRow,
@@ -49,6 +51,26 @@ export async function createInviteAction(
     role,
     invitedByProfileId: session.userId,
   });
+
+  // Best-effort email to the invitee with the accept link. Failures
+  // are swallowed so the invite is still surfaced in the admin UI as
+  // a copy/paste fallback even when Postmark is down or unconfigured.
+  try {
+    const tpl = buildInviteEmail({
+      role: invite.role,
+      token: invite.token,
+      expiresAt: invite.expiresAt,
+    });
+    await getServices().email.sendEmail({
+      to: invite.email,
+      subject: tpl.subject,
+      textBody: tpl.textBody,
+      htmlBody: tpl.htmlBody,
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("createInviteAction: invite email failed", err);
+  }
 
   // Build the accept URL using the request origin if available; the
   // caller (admin user) needs to share this link with the invitee.
