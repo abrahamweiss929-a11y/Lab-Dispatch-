@@ -21,12 +21,12 @@ export function RouteStatusControls({
   const boundReset = resetRouteAction.bind(null, routeId);
 
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap gap-2">
       {status === "pending" ? (
         <form action={boundStart}>
           <button
             type="submit"
-            className="rounded bg-black px-3 py-1 text-xs font-medium text-white hover:bg-gray-800"
+            className="btn btn-primary min-h-9 px-3 py-1 text-xs"
           >
             Start route
           </button>
@@ -36,7 +36,7 @@ export function RouteStatusControls({
         <form action={boundComplete}>
           <button
             type="submit"
-            className="rounded bg-green-700 px-3 py-1 text-xs font-medium text-white hover:bg-green-800"
+            className="btn btn-success min-h-9 px-3 py-1 text-xs"
           >
             Complete route
           </button>
@@ -46,7 +46,7 @@ export function RouteStatusControls({
         <form action={boundReset}>
           <button
             type="submit"
-            className="rounded border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-100"
+            className="btn btn-secondary min-h-9 px-3 py-1 text-xs"
           >
             Reset to pending
           </button>

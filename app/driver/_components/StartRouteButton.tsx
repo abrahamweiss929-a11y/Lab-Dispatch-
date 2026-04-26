@@ -13,7 +13,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full rounded-xl bg-blue-600 py-4 text-lg font-semibold text-white shadow hover:bg-blue-700 disabled:opacity-60"
+      className="mobile-action disabled:opacity-60"
     >
       {pending ? "Starting…" : "Start route"}
     </button>

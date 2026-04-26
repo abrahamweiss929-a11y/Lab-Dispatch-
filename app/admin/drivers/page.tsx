@@ -18,26 +18,26 @@ export default async function DriversListPage() {
 
   return (
     <AdminLayout title="Drivers">
-      <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-gray-600">
+      <div className="toolbar">
+        <p className="page-subtitle">
           {drivers.length} {drivers.length === 1 ? "driver" : "drivers"} total
         </p>
         <Link
           href="/admin/drivers/new"
-          className="rounded bg-black px-3 py-2 text-sm font-medium text-white hover:bg-gray-800"
+          className="btn btn-primary"
         >
           New driver
         </Link>
       </div>
 
       {drivers.length === 0 ? (
-        <p className="rounded border border-dashed border-gray-300 p-6 text-sm text-gray-500">
+        <p className="empty-state">
           No drivers yet. Create one to start dispatching pickups.
         </p>
       ) : (
-        <div className="overflow-hidden rounded border border-gray-200 bg-white">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+        <div className="data-table-shell">
+          <table className="data-table">
+            <thead>
               <tr>
                 <th className="px-4 py-2">Full name</th>
                 <th className="px-4 py-2">Email</th>
@@ -58,14 +58,18 @@ export default async function DriversListPage() {
                     <td className="px-4 py-2">{email}</td>
                     <td className="px-4 py-2">{d.phone ?? "—"}</td>
                     <td className="px-4 py-2">{d.vehicleLabel ?? "—"}</td>
-                    <td className="px-4 py-2">{d.active ? "Yes" : "No"}</td>
+                    <td className="px-4 py-2">
+                      <span className={d.active ? "badge badge-success" : "badge badge-neutral"}>
+                        {d.active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
                     <td className="px-4 py-2 text-xs text-gray-500">
                       {formatShortDateTime(d.createdAt)}
                     </td>
                     <td className="flex gap-2 px-4 py-2">
                       <Link
                         href={`/admin/drivers/${d.profileId}`}
-                        className="text-blue-600 hover:underline"
+                        className="btn-link"
                       >
                         Edit
                       </Link>
@@ -78,7 +82,7 @@ export default async function DriversListPage() {
                         >
                           <button
                             type="submit"
-                            className="text-red-600 hover:underline"
+                            className="btn-danger"
                           >
                             Deactivate
                           </button>

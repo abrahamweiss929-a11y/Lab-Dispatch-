@@ -21,9 +21,9 @@ export function NewDoctorForm({ offices }: NewDoctorFormProps) {
   );
 
   return (
-    <form action={formAction} className="max-w-xl space-y-4" noValidate>
+    <form action={formAction} className="form-card space-y-4" noValidate>
       {state?.error ? (
-        <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-700">
+        <p role="alert" className="alert-error">
           {state?.error}
         </p>
       ) : null}
@@ -93,16 +93,15 @@ export function NewDoctorForm({ offices }: NewDoctorFormProps) {
         ) : null}
       </label>
 
-      <div className="flex gap-2">
+      <div className="form-actions">
         <button
           type="submit"
-          className="rounded bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
         >
           Create doctor
         </button>
         <Link
           href="/admin/doctors"
-          className="rounded px-4 py-2 text-sm text-gray-600 hover:underline"
+          className="px-4 py-2 text-sm hover:underline"
         >
           Cancel
         </Link>

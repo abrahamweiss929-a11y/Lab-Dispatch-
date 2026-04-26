@@ -43,7 +43,7 @@ export function StopRow({
           <button
             type="submit"
             disabled={!canMoveUp}
-            className="rounded border border-gray-300 px-2 py-1 text-xs disabled:opacity-40"
+            className="btn btn-secondary min-h-8 px-2 py-1 text-xs disabled:opacity-40"
           >
             Up
           </button>
@@ -52,13 +52,13 @@ export function StopRow({
           <button
             type="submit"
             disabled={!canMoveDown}
-            className="rounded border border-gray-300 px-2 py-1 text-xs disabled:opacity-40"
+            className="btn btn-secondary min-h-8 px-2 py-1 text-xs disabled:opacity-40"
           >
             Down
           </button>
         </form>
         <form action={boundRemove} onSubmit={confirmRemove}>
-          <button type="submit" className="text-xs text-red-600 hover:underline">
+          <button type="submit" className="btn-danger text-xs hover:underline">
             Remove
           </button>
         </form>

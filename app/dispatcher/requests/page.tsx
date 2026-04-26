@@ -40,6 +40,19 @@ function routeLabel(route: Route, driverName: string | undefined): string {
   return `${name} · ${route.status}`;
 }
 
+function statusBadgeClass(status: PickupRequest["status"]): string {
+  if (status === "completed") return "badge badge-success";
+  if (status === "flagged") return "badge badge-danger";
+  if (status === "assigned") return "badge badge-info";
+  return "badge badge-warning";
+}
+
+function urgencyBadgeClass(urgency: PickupRequest["urgency"]): string {
+  if (urgency === "stat") return "badge badge-danger";
+  if (urgency === "urgent") return "badge badge-warning";
+  return "badge badge-neutral";
+}
+
 export default async function DispatcherRequestsPage({
   searchParams,
 }: {
@@ -72,8 +85,8 @@ export default async function DispatcherRequestsPage({
 
   return (
     <DispatcherLayout title="Today's requests">
-      <div className="mb-4 flex items-center justify-between">
-        <nav className="flex gap-1 rounded bg-gray-100 p-1 text-sm">
+      <div className="toolbar">
+        <nav className="segmented-nav">
           {FILTER_TABS.map((tab) => {
             const active = tab.value === filter;
             return (
@@ -86,8 +99,8 @@ export default async function DispatcherRequestsPage({
                 }
                 className={
                   active
-                    ? "rounded bg-white px-3 py-1 font-medium shadow-sm"
-                    : "rounded px-3 py-1 text-gray-600 hover:bg-white"
+                    ? "segmented-link segmented-link-active"
+                    : "segmented-link"
                 }
               >
                 {tab.label}
@@ -97,20 +110,20 @@ export default async function DispatcherRequestsPage({
         </nav>
         <Link
           href="/dispatcher/requests/new"
-          className="rounded bg-black px-3 py-2 text-sm font-medium text-white hover:bg-gray-800"
+          className="btn btn-primary"
         >
           New manual request
         </Link>
       </div>
 
       {rows.length === 0 ? (
-        <p className="rounded border border-dashed border-gray-300 p-6 text-sm text-gray-500">
+        <p className="empty-state">
           No requests today in this view.
         </p>
       ) : (
-        <div className="overflow-hidden rounded border border-gray-200 bg-white">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+        <div className="data-table-shell">
+          <table className="data-table">
+            <thead>
               <tr>
                 <th className="px-4 py-2">Created</th>
                 <th className="px-4 py-2">Channel</th>
@@ -136,11 +149,21 @@ export default async function DispatcherRequestsPage({
                     <td className="px-4 py-2">
                       {formatShortDateTime(r.createdAt)}
                     </td>
-                    <td className="px-4 py-2">{r.channel}</td>
+                    <td className="px-4 py-2">
+                      <span className="badge badge-info">{r.channel}</span>
+                    </td>
                     <td className="px-4 py-2">{fromLabel}</td>
-                    <td className="px-4 py-2">{r.urgency}</td>
+                    <td className="px-4 py-2">
+                      <span className={urgencyBadgeClass(r.urgency)}>
+                        {r.urgency}
+                      </span>
+                    </td>
                     <td className="px-4 py-2">{r.sampleCount ?? "—"}</td>
-                    <td className="px-4 py-2">{r.status}</td>
+                    <td className="px-4 py-2">
+                      <span className={statusBadgeClass(r.status)}>
+                        {r.status}
+                      </span>
+                    </td>
                     <td className="flex flex-wrap items-center gap-3 px-4 py-2">
                       <AssignToRouteSelect
                         requestId={r.id}

@@ -29,7 +29,7 @@ export function DeleteDoctorButton({
 
   return (
     <form action={boundAction} onSubmit={handleSubmit}>
-      <button type="submit" className="text-red-600 hover:underline">
+      <button type="submit" className="btn-danger">
         Delete
       </button>
     </form>

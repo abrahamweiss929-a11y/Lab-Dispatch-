@@ -82,7 +82,7 @@ export default async function DriverRoutePage({
       <div className="mb-4 flex items-center justify-between">
         <Link
           href="/driver"
-          className="text-sm text-blue-600 hover:underline"
+          className="btn-link text-sm"
         >
           ← Back
         </Link>
@@ -93,16 +93,16 @@ export default async function DriverRoutePage({
       </div>
 
       {route.status === "pending" ? (
-        <p className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
+        <p className="empty-state text-sm">
           Route not started.{" "}
-          <Link href="/driver" className="text-blue-600 hover:underline">
+          <Link href="/driver" className="btn-link">
             Go back and tap &ldquo;Start route&rdquo;.
           </Link>
         </p>
       ) : (
         <>
           {stopViews.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">
+            <p className="empty-state text-sm">
               No stops on this route.
             </p>
           ) : (
@@ -133,7 +133,7 @@ export default async function DriverRoutePage({
           ) : null}
 
           {route.status === "completed" ? (
-            <p className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4 text-center text-sm text-green-800">
+            <p className="alert-success mt-4 text-center text-sm">
               This route is already completed.
             </p>
           ) : null}

@@ -34,14 +34,14 @@ export default async function DispatcherMessagesPage({
   return (
     <DispatcherLayout title="Inbound messages">
       {showSimulatePanel ? <SimulateInboundPanel /> : null}
-      <div className="mb-4 flex items-center gap-4">
-        <nav className="flex gap-1 rounded bg-gray-100 p-1 text-sm">
+      <div className="toolbar">
+        <nav className="segmented-nav">
           <Link
             href="/dispatcher/messages"
             className={
               filter === "all"
-                ? "rounded bg-white px-3 py-1 font-medium shadow-sm"
-                : "rounded px-3 py-1 text-gray-600 hover:bg-white"
+                ? "segmented-link segmented-link-active"
+                : "segmented-link"
             }
           >
             All
@@ -50,8 +50,8 @@ export default async function DispatcherMessagesPage({
             href="/dispatcher/messages?filter=flagged"
             className={
               filter === "flagged"
-                ? "rounded bg-white px-3 py-1 font-medium shadow-sm"
-                : "rounded px-3 py-1 text-gray-600 hover:bg-white"
+                ? "segmented-link segmented-link-active"
+                : "segmented-link"
             }
           >
             Flagged only
@@ -60,13 +60,13 @@ export default async function DispatcherMessagesPage({
       </div>
 
       {messages.length === 0 ? (
-        <p className="rounded border border-dashed border-gray-300 p-6 text-sm text-gray-500">
+        <p className="empty-state">
           No messages in this view.
         </p>
       ) : (
-        <div className="overflow-hidden rounded border border-gray-200 bg-white">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+        <div className="data-table-shell">
+          <table className="data-table">
+            <thead>
               <tr>
                 <th className="px-4 py-2">Received</th>
                 <th className="px-4 py-2">Channel</th>
@@ -83,7 +83,9 @@ export default async function DispatcherMessagesPage({
                   <td className="px-4 py-2">
                     {formatShortDateTime(m.receivedAt)}
                   </td>
-                  <td className="px-4 py-2">{m.channel}</td>
+                  <td className="px-4 py-2">
+                    <span className="badge badge-info">{m.channel}</span>
+                  </td>
                   <td className="px-4 py-2">{m.fromIdentifier}</td>
                   <td className="px-4 py-2">
                     {m.subject && m.subject.length > 0 ? m.subject : "—"}
@@ -91,8 +93,13 @@ export default async function DispatcherMessagesPage({
                   <td className="px-4 py-2">{truncate(m.body)}</td>
                   <td className="px-4 py-2">
                     {m.pickupRequestId
-                      ? `Yes, #${m.pickupRequestId.slice(0, 6)}`
-                      : "—"}
+                      ? (
+                        <span className="badge badge-success">
+                          Linked #{m.pickupRequestId.slice(0, 6)}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
                   </td>
                   <td className="px-4 py-2">
                     {m.pickupRequestId ? null : (

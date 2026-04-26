@@ -22,9 +22,9 @@ interface StopCardProps {
 }
 
 const URGENCY_STYLE: Record<PickupUrgency, string> = {
-  routine: "bg-gray-100 text-gray-700",
-  urgent: "bg-amber-100 text-amber-800",
-  stat: "bg-red-100 text-red-800",
+  routine: "badge badge-neutral",
+  urgent: "badge badge-warning",
+  stat: "badge badge-danger",
 };
 
 const STATUS_LABEL: Record<StopCardStatus, string> = {
@@ -39,7 +39,7 @@ function PrimaryButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="w-full rounded-xl bg-blue-600 py-4 text-lg font-semibold text-white shadow hover:bg-blue-700 disabled:opacity-60"
+      className="mobile-action disabled:opacity-60"
     >
       {pending ? "Submitting…" : label}
     </button>
@@ -59,8 +59,8 @@ export function StopCard({
   canCheckIn,
 }: StopCardProps) {
   const containerCls = [
-    "rounded-2xl border p-4 bg-white",
-    isCurrent ? "ring-2 ring-blue-500 border-blue-200" : "border-gray-200",
+    "app-card p-4",
+    isCurrent ? "ring-4 ring-teal-100 border-[var(--brand-500)]" : "",
     status === "picked_up" ? "opacity-60" : "",
   ]
     .filter(Boolean)
@@ -76,18 +76,18 @@ export function StopCard({
           #{position}
         </span>
         <span
-          className={`rounded px-2 py-0.5 text-xs font-medium uppercase tracking-wide ${URGENCY_STYLE[urgency]}`}
+          className={URGENCY_STYLE[urgency]}
         >
           {urgency}
         </span>
-        <span className="ml-auto rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+        <span className="badge badge-info ml-auto">
           {STATUS_LABEL[status]}
         </span>
       </div>
 
-      <h3 className="text-xl font-semibold text-gray-900">{officeName}</h3>
+      <h3 className="text-xl font-black text-[var(--brand-950)]">{officeName}</h3>
       {address ? (
-        <address className="mt-1 text-sm not-italic text-gray-600">
+        <address className="mt-1 text-sm leading-6 not-italic text-gray-600">
           {address.street}
           <br />
           {address.city}, {address.state} {address.zip}
@@ -95,11 +95,13 @@ export function StopCard({
       ) : null}
 
       {typeof sampleCount === "number" ? (
-        <p className="mt-2 text-sm text-gray-700">Samples: {sampleCount}</p>
+        <p className="mt-2 text-sm font-semibold text-gray-700">
+          Samples: {sampleCount}
+        </p>
       ) : null}
 
       {specialInstructions && specialInstructions.length > 0 ? (
-        <p className="mt-2 rounded bg-amber-50 p-2 text-sm text-amber-900">
+        <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-sm text-amber-900">
           {specialInstructions}
         </p>
       ) : null}
@@ -109,7 +111,7 @@ export function StopCard({
           href={googleMapsSearchUrl(address)}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-3 inline-block text-sm font-medium text-blue-600 hover:underline"
+          className="btn btn-secondary mt-3 min-h-10"
         >
           Open in Maps
         </a>
@@ -134,7 +136,7 @@ export function StopCard({
       <div className="mt-3 text-right">
         <Link
           href={`/driver/route/${stopId}`}
-          className="text-xs text-blue-600 hover:underline"
+          className="btn-link text-xs"
         >
           Details →
         </Link>

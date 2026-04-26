@@ -26,7 +26,7 @@ export function ConvertToRequestButton({
       onSubmit={handleSubmit}
       className="inline-block"
     >
-      <button type="submit" className="text-xs text-blue-600 hover:underline">
+      <button type="submit" className="text-xs font-bold text-[var(--brand-700)] hover:underline">
         Convert to request
       </button>
     </form>

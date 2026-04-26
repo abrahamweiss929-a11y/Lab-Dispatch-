@@ -15,7 +15,7 @@ export function AddStopForm({ routeId, pickupRequestId }: AddStopFormProps) {
       <input type="hidden" name="pickupRequestId" value={pickupRequestId} />
       <button
         type="submit"
-        className="text-xs font-medium text-blue-600 hover:underline"
+        className="text-xs font-extrabold text-[var(--brand-700)] hover:underline"
       >
         Add to this route
       </button>

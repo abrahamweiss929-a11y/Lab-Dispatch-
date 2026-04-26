@@ -22,7 +22,7 @@ function LoginForm() {
           type="email"
           name="email"
           required
-          className="rounded border border-gray-300 px-3 py-2"
+          className="rounded-lg border border-[var(--line)] px-3 py-3 outline-none focus:border-[var(--brand-600)] focus:ring-4 focus:ring-teal-100"
           autoComplete="email"
         />
       </label>
@@ -32,18 +32,18 @@ function LoginForm() {
           type="password"
           name="password"
           required
-          className="rounded border border-gray-300 px-3 py-2"
+          className="rounded-lg border border-[var(--line)] px-3 py-3 outline-none focus:border-[var(--brand-600)] focus:ring-4 focus:ring-teal-100"
           autoComplete="current-password"
         />
       </label>
       {state?.error ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="alert-error">
           {state.error}
         </p>
       ) : null}
       <button
         type="submit"
-        className="rounded bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+        className="btn btn-primary mt-1"
       >
         Sign in
       </button>
@@ -59,11 +59,25 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8">
-      <div className="w-full max-w-sm">
-        <h1 className="text-3xl font-bold tracking-tight">Sign in</h1>
-        <p className="mt-2 text-sm text-gray-600">
-          Lab Dispatch operator console.
+    <main className="auth-page">
+      <div className="route-visual" aria-hidden="true">
+        <span className="route-line route-line-one" />
+        <span className="route-line route-line-two" />
+        <span className="route-node route-node-a" />
+        <span className="route-node route-node-b" />
+        <span className="route-node route-node-c" />
+      </div>
+      <div className="auth-card mx-auto p-6">
+        <div className="brand-lockup">
+          <span className="brand-mark brand-mark-small" aria-hidden="true" />
+          <div>
+            <p className="brand-title">Lab Dispatch</p>
+            <p className="brand-subtitle">Operator console</p>
+          </div>
+        </div>
+        <h1 className="mt-8 text-3xl font-black tracking-tight">Sign in</h1>
+        <p className="mt-2 text-sm leading-6 text-gray-600">
+          Choose a mock account to preview each workspace.
         </p>
         <Suspense fallback={null}>
           <LoginForm />
@@ -72,14 +86,16 @@ export default function LoginPage() {
           Mock-grade credential hint block. Remove when Supabase Auth lands —
           see BLOCKERS.md [supabase].
         */}
-        <div className="mt-8 rounded border border-dashed border-gray-300 p-3 text-xs text-gray-600">
-          <p className="font-medium">Mock test credentials</p>
-          <ul className="mt-1 list-disc pl-4">
-            <li>driver@test</li>
-            <li>dispatcher@test</li>
-            <li>admin@test</li>
+        <div className="mt-8 rounded-lg border border-dashed border-[var(--line)] bg-[var(--surface-soft)] p-3 text-xs text-gray-600">
+          <p className="font-extrabold text-[var(--brand-900)]">
+            Mock test credentials
+          </p>
+          <ul className="mt-2 grid gap-1">
+            <li><code>driver@test</code></li>
+            <li><code>dispatcher@test</code></li>
+            <li><code>admin@test</code></li>
           </ul>
-          <p className="mt-1">Shared password: test1234</p>
+          <p className="mt-2">Shared password: <code>test1234</code></p>
         </div>
       </div>
     </main>

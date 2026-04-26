@@ -31,7 +31,7 @@ export function FlagForReviewButton({ requestId }: FlagForReviewButtonProps) {
       <input ref={inputRef} type="hidden" name="reason" defaultValue="" />
       <button
         type="submit"
-        className="text-xs text-amber-700 hover:underline"
+        className="text-xs font-bold text-amber-700 hover:underline"
       >
         Flag
       </button>

@@ -30,11 +30,11 @@ export default async function DriverTodayPage({
   if (!driverId) {
     return (
       <DriverLayout title="Driver view" driverName="Admin">
-        <p className="rounded border border-dashed border-gray-300 p-6 text-sm text-gray-500">
+        <p className="empty-state">
           Admin view — no driver selected. Pick one from{" "}
           <Link
             href="/admin/drivers"
-            className="text-blue-600 hover:underline"
+            className="btn-link"
           >
             Admin → Drivers
           </Link>
@@ -48,8 +48,8 @@ export default async function DriverTodayPage({
   if (!driver) {
     return (
       <DriverLayout title="Today" driverName="Unknown">
-        <p className="rounded border border-dashed border-gray-300 p-6 text-sm text-gray-500">
-          Driver not found. <a className="text-blue-600" href="/logout">Log out</a>.
+        <p className="empty-state">
+          Driver not found. <a className="btn-link" href="/logout">Log out</a>.
         </p>
       </DriverLayout>
     );
@@ -60,10 +60,10 @@ export default async function DriverTodayPage({
   if (route === null) {
     return (
       <DriverLayout title="Today" driverName={driver.fullName}>
-        <p className="text-xs uppercase tracking-wide text-gray-500">
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--brand-700)]">
           {formatDateIsoToShort(todayIso())}
         </p>
-        <p className="mt-2 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-sm text-gray-600">
+        <p className="empty-state mt-3">
           No route assigned yet — check with your dispatcher.
         </p>
       </DriverLayout>
@@ -77,18 +77,21 @@ export default async function DriverTodayPage({
 
   return (
     <DriverLayout title="Today" driverName={driver.fullName}>
-      <p className="text-xs uppercase tracking-wide text-gray-500">
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--brand-700)]">
         {formatDateIsoToShort(route.routeDate)}
       </p>
-      <div className="mt-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="app-card mt-3 p-4">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-700">Status</span>
-          <span className="rounded bg-gray-100 px-2 py-1 text-xs font-medium uppercase tracking-wide text-gray-700">
+          <span className="text-sm font-bold text-gray-700">Status</span>
+          <span className="badge badge-info">
             {route.status}
           </span>
         </div>
-        <p className="mt-3 text-sm text-gray-700">
-          Stops: {stopCount} · Completed: {completedCount}
+        <p className="mt-4 text-3xl font-black text-[var(--brand-950)]">
+          {completedCount}/{stopCount}
+        </p>
+        <p className="mt-1 text-sm text-gray-600">
+          stops completed
         </p>
         {route.status === "completed" && route.completedAt ? (
           <p className="mt-2 text-xs text-gray-500">
@@ -101,7 +104,7 @@ export default async function DriverTodayPage({
         canStart ? (
           <StartRouteButton routeId={route.id} />
         ) : (
-          <p className="mt-4 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm text-gray-500">
+          <p className="empty-state mt-4 text-center">
             Admin view — drivers start routes
           </p>
         )
@@ -111,7 +114,7 @@ export default async function DriverTodayPage({
         <div className="mt-4 space-y-3">
           <Link
             href="/driver/route"
-            className="block w-full rounded-xl bg-blue-600 py-4 text-center text-lg font-semibold text-white shadow hover:bg-blue-700"
+            className="mobile-action"
           >
             Open route
           </Link>

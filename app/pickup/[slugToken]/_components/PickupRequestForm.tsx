@@ -26,11 +26,18 @@ export function PickupRequestForm({
 
   if (state?.status === "ok") {
     return (
-      <section className="rounded border border-green-200 bg-green-50 p-6">
-        <h1 className="text-2xl font-bold tracking-tight text-green-900">
+      <section className="auth-card p-6">
+        <div className="brand-lockup">
+          <span className="brand-mark brand-mark-small" aria-hidden="true" />
+          <div>
+            <p className="brand-title">Lab Dispatch</p>
+            <p className="brand-subtitle">{officeName}</p>
+          </div>
+        </div>
+        <h1 className="mt-8 text-3xl font-black tracking-tight text-green-900">
           Thanks — request received
         </h1>
-        <p className="mt-3 text-sm text-gray-800">
+        <p className="mt-3 text-sm leading-6 text-gray-800">
           A driver will be by {state?.etaText}.
         </p>
         {officePhone !== undefined && officePhone.length > 0 ? (
@@ -51,12 +58,19 @@ export function PickupRequestForm({
     state?.status === "error" ? state?.fieldErrors : ({} as const);
 
   return (
-    <form action={formAction} className="space-y-5" noValidate>
+    <form action={formAction} className="auth-card form-card space-y-5 p-6" noValidate>
       <header>
-        <h1 className="text-2xl font-bold tracking-tight">
+        <div className="brand-lockup mb-8">
+          <span className="brand-mark brand-mark-small" aria-hidden="true" />
+          <div>
+            <p className="brand-title">Lab Dispatch</p>
+            <p className="brand-subtitle">Pickup request</p>
+          </div>
+        </div>
+        <h1 className="text-3xl font-black leading-tight tracking-tight">
           Request sample pickup — {officeName}
         </h1>
-        <p className="mt-1 text-sm text-gray-600">
+        <p className="mt-3 text-sm leading-6 text-gray-600">
           {officeCity}, {officeState}. You&apos;re identified as this office by
           this link — no login required.
         </p>
@@ -65,7 +79,7 @@ export function PickupRequestForm({
       {error !== null ? (
         <p
           role="alert"
-          className="rounded bg-red-50 p-3 text-sm text-red-700"
+          className="alert-error"
         >
           {error}
         </p>
@@ -130,10 +144,7 @@ export function PickupRequestForm({
         ) : null}
       </label>
 
-      <button
-        type="submit"
-        className="w-full rounded bg-black px-4 py-3 text-sm font-medium text-white hover:bg-gray-800"
-      >
+      <button type="submit" className="w-full">
         Send pickup request
       </button>
     </form>

@@ -22,26 +22,26 @@ export default async function DoctorsListPage() {
 
   return (
     <AdminLayout title="Doctors">
-      <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-gray-600">
+      <div className="toolbar">
+        <p className="page-subtitle">
           {doctors.length} {doctors.length === 1 ? "doctor" : "doctors"} total
         </p>
         <Link
           href="/admin/doctors/new"
-          className="rounded bg-black px-3 py-2 text-sm font-medium text-white hover:bg-gray-800"
+          className="btn btn-primary"
         >
           New doctor
         </Link>
       </div>
 
       {rows.length === 0 ? (
-        <p className="rounded border border-dashed border-gray-300 p-6 text-sm text-gray-500">
+        <p className="empty-state">
           No doctors yet. Create an office first, then add doctors to it.
         </p>
       ) : (
-        <div className="overflow-hidden rounded border border-gray-200 bg-white">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+        <div className="data-table-shell">
+          <table className="data-table">
+            <thead>
               <tr>
                 <th className="px-4 py-2">Name</th>
                 <th className="px-4 py-2">Office</th>
@@ -62,7 +62,7 @@ export default async function DoctorsListPage() {
                     <td className="flex gap-2 px-4 py-2">
                       <Link
                         href={`/admin/doctors/${d.id}`}
-                        className="text-blue-600 hover:underline"
+                        className="btn-link"
                       >
                         Edit
                       </Link>

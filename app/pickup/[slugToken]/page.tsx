@@ -24,8 +24,15 @@ export default async function PickupPage({ params }: PickupPageProps) {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center p-6">
-      <div className="w-full max-w-lg">
+    <main className="auth-page">
+      <div className="route-visual" aria-hidden="true">
+        <span className="route-line route-line-one" />
+        <span className="route-line route-line-two" />
+        <span className="route-node route-node-a" />
+        <span className="route-node route-node-b" />
+        <span className="route-node route-node-c" />
+      </div>
+      <div className="relative mx-auto w-full max-w-xl">
         <PickupRequestForm
           slugToken={params.slugToken}
           officeName={office.name}

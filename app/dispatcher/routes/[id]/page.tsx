@@ -8,6 +8,12 @@ import { AddStopForm } from "./_components/AddStopForm";
 import { RouteStatusControls } from "./_components/RouteStatusControls";
 import { StopRow } from "./_components/StopRow";
 
+function routeStatusBadgeClass(status: string): string {
+  if (status === "completed") return "badge badge-success";
+  if (status === "active") return "badge badge-info";
+  return "badge badge-warning";
+}
+
 export default async function RouteDetailPage({
   params,
 }: {
@@ -42,17 +48,29 @@ export default async function RouteDetailPage({
 
   return (
     <DispatcherLayout title={`Route — ${driverName}`}>
-      <div className="mb-6 flex items-center justify-between rounded border border-gray-200 bg-white p-4">
-        <div className="space-y-1 text-sm">
+      <div className="app-card mb-6 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="grid gap-3 text-sm sm:grid-cols-3">
           <p>
-            <span className="font-medium">Driver:</span> {driverName}
+            <span className="block text-xs font-bold uppercase text-[var(--muted)]">
+              Driver
+            </span>
+            <span className="font-semibold">{driverName}</span>
           </p>
           <p>
-            <span className="font-medium">Date:</span>{" "}
-            {formatDateIsoToShort(route.routeDate)}
+            <span className="block text-xs font-bold uppercase text-[var(--muted)]">
+              Date
+            </span>
+            <span className="font-semibold">
+              {formatDateIsoToShort(route.routeDate)}
+            </span>
           </p>
           <p>
-            <span className="font-medium">Status:</span> {route.status}
+            <span className="block text-xs font-bold uppercase text-[var(--muted)]">
+              Status
+            </span>
+            <span className={routeStatusBadgeClass(route.status)}>
+              {route.status}
+            </span>
           </p>
         </div>
         <RouteStatusControls routeId={route.id} status={route.status} />
@@ -60,15 +78,15 @@ export default async function RouteDetailPage({
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <section className="lg:col-span-2">
-          <h2 className="mb-3 text-lg font-semibold">Stops</h2>
+          <h2 className="mb-3 text-lg font-extrabold">Stops</h2>
           {stops.length === 0 ? (
-            <p className="rounded border border-dashed border-gray-300 p-6 text-sm text-gray-500">
+            <p className="empty-state">
               No stops yet. Use the side pane to assign pending requests.
             </p>
           ) : (
-            <div className="overflow-hidden rounded border border-gray-200 bg-white">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+            <div className="data-table-shell">
+              <table className="data-table">
+                <thead>
                   <tr>
                     <th className="px-4 py-2">#</th>
                     <th className="px-4 py-2">Office</th>
@@ -100,9 +118,9 @@ export default async function RouteDetailPage({
         </section>
 
         <aside>
-          <h2 className="mb-3 text-lg font-semibold">Pending today</h2>
+          <h2 className="mb-3 text-lg font-extrabold">Pending today</h2>
           {pendingToday.length === 0 ? (
-            <p className="rounded border border-dashed border-gray-300 p-6 text-sm text-gray-500">
+            <p className="empty-state">
               Nothing pending today.
             </p>
           ) : (
@@ -119,7 +137,7 @@ export default async function RouteDetailPage({
                 return (
                   <li
                     key={r.id}
-                    className="flex items-center justify-between rounded border border-gray-200 bg-white p-3 text-sm"
+                    className="app-card flex items-center justify-between gap-3 p-3 text-sm"
                   >
                     <div>
                       <p className="font-medium">{fromLabel}</p>
@@ -136,7 +154,7 @@ export default async function RouteDetailPage({
           <div className="mt-4 text-xs text-gray-500">
             <Link
               href="/dispatcher/requests"
-              className="text-blue-600 hover:underline"
+              className="btn-link"
             >
               Full requests queue →
             </Link>

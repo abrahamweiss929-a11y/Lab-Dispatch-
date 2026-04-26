@@ -15,7 +15,7 @@ function SubmitButton({ forceDisabled }: { forceDisabled: boolean }) {
     <button
       type="submit"
       disabled={disabled}
-      className="w-full rounded-xl bg-green-700 py-4 text-lg font-semibold text-white shadow hover:bg-green-800 disabled:opacity-60"
+      className="mobile-action mobile-action-success disabled:opacity-60"
     >
       {pending ? "Completing…" : "Complete route"}
     </button>

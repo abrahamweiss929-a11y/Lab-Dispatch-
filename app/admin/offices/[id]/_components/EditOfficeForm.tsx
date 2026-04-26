@@ -31,9 +31,9 @@ export function EditOfficeForm({ office }: EditOfficeFormProps) {
   }
 
   return (
-    <form action={formAction} className="max-w-xl space-y-4" noValidate>
+    <form action={formAction} className="form-card space-y-4" noValidate>
       {state?.error ? (
-        <p role="alert" className="rounded bg-red-50 p-3 text-sm text-red-700">
+        <p role="alert" className="alert-error">
           {state?.error}
         </p>
       ) : null}
@@ -68,7 +68,7 @@ export function EditOfficeForm({ office }: EditOfficeFormProps) {
         ) : null}
       </label>
 
-      <div className="rounded border border-gray-200 bg-gray-50 p-3 text-sm">
+      <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-soft)] p-3 text-sm">
         <p className="font-medium">Pickup URL token</p>
         <p className="mt-1 font-mono text-xs text-gray-700">
           {office.pickupUrlToken}
@@ -83,7 +83,7 @@ export function EditOfficeForm({ office }: EditOfficeFormProps) {
           <button
             type="button"
             onClick={handleCopy}
-            className="rounded border border-gray-300 bg-white px-2 py-1 text-xs hover:bg-gray-100"
+            className="btn btn-secondary min-h-8 px-2 py-1 text-xs"
           >
             {copied ? "Copied" : "Copy"}
           </button>
@@ -195,16 +195,15 @@ export function EditOfficeForm({ office }: EditOfficeFormProps) {
         <span className="font-medium">Active</span>
       </label>
 
-      <div className="flex gap-2">
+      <div className="form-actions">
         <button
           type="submit"
-          className="rounded bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
         >
           Save changes
         </button>
         <Link
           href="/admin/offices"
-          className="rounded px-4 py-2 text-sm text-gray-600 hover:underline"
+          className="px-4 py-2 text-sm hover:underline"
         >
           Cancel
         </Link>

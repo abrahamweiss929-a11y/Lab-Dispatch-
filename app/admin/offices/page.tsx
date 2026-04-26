@@ -10,26 +10,26 @@ export default async function OfficesListPage() {
 
   return (
     <AdminLayout title="Offices">
-      <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-gray-600">
+      <div className="toolbar">
+        <p className="page-subtitle">
           {offices.length} {offices.length === 1 ? "office" : "offices"} total
         </p>
         <Link
           href="/admin/offices/new"
-          className="rounded bg-black px-3 py-2 text-sm font-medium text-white hover:bg-gray-800"
+          className="btn btn-primary"
         >
           New office
         </Link>
       </div>
 
       {offices.length === 0 ? (
-        <p className="rounded border border-dashed border-gray-300 p-6 text-sm text-gray-500">
+        <p className="empty-state">
           No offices yet. Add one to start routing pickups.
         </p>
       ) : (
-        <div className="overflow-hidden rounded border border-gray-200 bg-white">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+        <div className="data-table-shell">
+          <table className="data-table">
+            <thead>
               <tr>
                 <th className="px-4 py-2">Name</th>
                 <th className="px-4 py-2">Slug</th>
@@ -52,11 +52,15 @@ export default async function OfficesListPage() {
                     <td className="px-4 py-2">
                       {o.address.city}, {o.address.state}
                     </td>
-                    <td className="px-4 py-2">{o.active ? "Yes" : "No"}</td>
+                    <td className="px-4 py-2">
+                      <span className={o.active ? "badge badge-success" : "badge badge-neutral"}>
+                        {o.active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
                     <td className="flex gap-2 px-4 py-2">
                       <Link
                         href={`/admin/offices/${o.id}`}
-                        className="text-blue-600 hover:underline"
+                        className="btn-link"
                       >
                         Edit
                       </Link>
@@ -66,7 +70,7 @@ export default async function OfficesListPage() {
                         >
                           <button
                             type="submit"
-                            className="text-red-600 hover:underline"
+                            className="btn-danger"
                           >
                             Deactivate
                           </button>

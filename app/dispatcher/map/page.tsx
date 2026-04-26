@@ -20,20 +20,33 @@ export default async function DispatcherMapPage() {
 
   return (
     <DispatcherLayout title="Driver map">
-      <aside className="mb-6 rounded border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-        This becomes a real map when <code>MAPBOX_TOKEN</code> is wired. For
-        now, it shows the last-known location of every driver who pinged in
-        the past 15 minutes.
-      </aside>
+      <section className="map-panel mb-6">
+        <span className="map-pin map-pin-one" aria-hidden="true" />
+        <span className="map-pin map-pin-two" aria-hidden="true" />
+        <span className="map-pin map-pin-three" aria-hidden="true" />
+        <div className="relative z-10 max-w-md p-5">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--brand-700)]">
+            Live location snapshot
+          </p>
+          <h2 className="mt-2 text-2xl font-black text-[var(--brand-950)]">
+            Driver pings from the last 15 minutes.
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+            This becomes a real Mapbox view when <code>MAPBOX_TOKEN</code> is
+            wired. For now, the table below keeps the same operational data
+            visible.
+          </p>
+        </div>
+      </section>
 
       {locations.length === 0 ? (
-        <p className="rounded border border-dashed border-gray-300 p-6 text-sm text-gray-500">
+        <p className="empty-state">
           No recent driver pings.
         </p>
       ) : (
-        <div className="overflow-hidden rounded border border-gray-200 bg-white">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+        <div className="data-table-shell">
+          <table className="data-table">
+            <thead>
               <tr>
                 <th className="px-4 py-2">Driver</th>
                 <th className="px-4 py-2">Recorded at</th>
@@ -63,7 +76,7 @@ export default async function DispatcherMapPage() {
                       {loc.routeId ? (
                         <Link
                           href={`/dispatcher/routes/${loc.routeId}`}
-                          className="text-blue-600 hover:underline"
+                          className="btn-link"
                         >
                           Yes
                         </Link>
@@ -80,8 +93,8 @@ export default async function DispatcherMapPage() {
       )}
 
       {notReporting.length > 0 ? (
-        <section className="mt-6">
-          <h2 className="mb-2 text-sm font-semibold text-gray-700">
+        <section className="app-card mt-6 p-4">
+          <h2 className="mb-2 text-sm font-extrabold text-[var(--brand-900)]">
             Not reporting
           </h2>
           <ul className="space-y-1 text-sm text-gray-500">

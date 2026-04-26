@@ -24,7 +24,7 @@ export function MarkResolvedButton({ requestId }: MarkResolvedButtonProps) {
     >
       <button
         type="submit"
-        className="text-xs text-green-700 hover:underline"
+        className="text-xs font-bold text-green-700 hover:underline"
       >
         Resolve
       </button>

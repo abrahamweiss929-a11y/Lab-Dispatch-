@@ -22,10 +22,8 @@ export function AdminNavLink({ href, children }: AdminNavLinkProps) {
       : pathname === href || pathname.startsWith(`${href}/`);
 
   const className = [
-    "block rounded px-3 py-2 text-sm",
-    active
-      ? "bg-gray-900 font-medium text-white"
-      : "text-gray-700 hover:bg-gray-100",
+    "app-nav-link",
+    active ? "app-nav-link-active" : "",
   ].join(" ");
 
   return (

@@ -8,9 +8,9 @@ import type { PickupUrgency } from "@/lib/types";
 import { StopCard, type StopCardStatus } from "../_components/StopCard";
 
 const URGENCY_BADGE: Record<PickupUrgency, string> = {
-  routine: "bg-gray-100 text-gray-700",
-  urgent: "bg-amber-100 text-amber-800",
-  stat: "bg-red-100 text-red-800",
+  routine: "badge badge-neutral",
+  urgent: "badge badge-warning",
+  stat: "badge badge-danger",
 };
 
 export default async function StopDetailPage({
@@ -54,7 +54,7 @@ export default async function StopDetailPage({
     >
       <Link
         href="/driver/route"
-        className="mb-4 inline-block text-sm text-blue-600 hover:underline"
+        className="btn-link mb-4 inline-block text-sm"
       >
         ← Back to route
       </Link>
@@ -64,15 +64,17 @@ export default async function StopDetailPage({
           #{stop.position}
         </span>
         <span
-          className={`rounded px-2 py-0.5 text-xs font-medium uppercase tracking-wide ${URGENCY_BADGE[request?.urgency ?? "routine"]}`}
+          className={URGENCY_BADGE[request?.urgency ?? "routine"]}
         >
           {request?.urgency ?? "routine"}
         </span>
       </div>
 
       {office ? (
-        <address className="not-italic text-base text-gray-800">
-          <p className="text-lg font-medium">{office.address.street}</p>
+        <address className="app-card p-4 not-italic text-base text-gray-800">
+          <p className="text-lg font-black text-[var(--brand-950)]">
+            {office.address.street}
+          </p>
           <p>
             {office.address.city}, {office.address.state} {office.address.zip}
           </p>
@@ -86,7 +88,7 @@ export default async function StopDetailPage({
           href={googleMapsSearchUrl(office.address)}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-3 inline-block rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700 hover:bg-blue-100"
+          className="btn btn-secondary mt-3"
         >
           Open in Maps
         </a>
@@ -100,7 +102,7 @@ export default async function StopDetailPage({
 
       {request?.specialInstructions &&
       request.specialInstructions.length > 0 ? (
-        <div className="mt-4 rounded bg-amber-50 p-3 text-sm text-amber-900">
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           <p className="font-medium">Special instructions</p>
           <p className="mt-1">{request.specialInstructions}</p>
         </div>

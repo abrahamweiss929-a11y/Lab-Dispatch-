@@ -21,6 +21,12 @@ function parseStatus(raw?: string): StatusTab {
   return "all";
 }
 
+function routeStatusBadgeClass(status: RouteStatus): string {
+  if (status === "completed") return "badge badge-success";
+  if (status === "active") return "badge badge-info";
+  return "badge badge-warning";
+}
+
 export default async function DispatcherRoutesPage({
   searchParams,
 }: {
@@ -50,8 +56,8 @@ export default async function DispatcherRoutesPage({
 
   return (
     <DispatcherLayout title="Routes">
-      <div className="mb-4 flex items-center justify-between">
-        <nav className="flex gap-1 rounded bg-gray-100 p-1 text-sm">
+      <div className="toolbar">
+        <nav className="segmented-nav">
           {STATUS_TABS.map((tab) => {
             const active = tab.value === status;
             return (
@@ -64,8 +70,8 @@ export default async function DispatcherRoutesPage({
                 }
                 className={
                   active
-                    ? "rounded bg-white px-3 py-1 font-medium shadow-sm"
-                    : "rounded px-3 py-1 text-gray-600 hover:bg-white"
+                    ? "segmented-link segmented-link-active"
+                    : "segmented-link"
                 }
               >
                 {tab.label}
@@ -75,20 +81,20 @@ export default async function DispatcherRoutesPage({
         </nav>
         <Link
           href="/dispatcher/routes/new"
-          className="rounded bg-black px-3 py-2 text-sm font-medium text-white hover:bg-gray-800"
+          className="btn btn-primary"
         >
           New route
         </Link>
       </div>
 
       {routes.length === 0 ? (
-        <p className="rounded border border-dashed border-gray-300 p-6 text-sm text-gray-500">
+        <p className="empty-state">
           No routes for today in this view.
         </p>
       ) : (
-        <div className="overflow-hidden rounded border border-gray-200 bg-white">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+        <div className="data-table-shell">
+          <table className="data-table">
+            <thead>
               <tr>
                 <th className="px-4 py-2">Driver</th>
                 <th className="px-4 py-2">Date</th>
@@ -107,11 +113,15 @@ export default async function DispatcherRoutesPage({
                     {formatDateIsoToShort(r.routeDate)}
                   </td>
                   <td className="px-4 py-2">{stopCounts[idx]}</td>
-                  <td className="px-4 py-2">{r.status}</td>
+                  <td className="px-4 py-2">
+                    <span className={routeStatusBadgeClass(r.status)}>
+                      {r.status}
+                    </span>
+                  </td>
                   <td className="px-4 py-2">
                     <Link
                       href={`/dispatcher/routes/${r.id}`}
-                      className="text-blue-600 hover:underline"
+                      className="btn-link"
                     >
                       Open
                     </Link>
