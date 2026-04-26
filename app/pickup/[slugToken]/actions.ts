@@ -124,7 +124,7 @@ export async function submitPickupRequestAction(
       await services.email.sendEmail({
         to: office.email,
         subject: `Pickup request received — ${office.name}`,
-        body: `We got your request. ETA: ${etaText}. Notes: ${notes}`,
+        textBody: `We got your request. ETA: ${etaText}. Notes: ${notes}`,
       });
     } catch {
       // Intentionally swallowed; the request is already persisted.

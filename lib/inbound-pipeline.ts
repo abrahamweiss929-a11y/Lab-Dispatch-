@@ -80,7 +80,7 @@ export async function handleInboundMessage(
         await email.sendEmail({
           to: canonicalFrom,
           subject: buildReplySubject(input.subject),
-          body: UNKNOWN_SENDER_COPY,
+          textBody: UNKNOWN_SENDER_COPY,
         });
       }
       return { status: "unknown_sender", messageId: storedMessage.id };
@@ -118,7 +118,7 @@ export async function handleInboundMessage(
       await email.sendEmail({
         to: canonicalFrom,
         subject: buildReplySubject(input.subject),
-        body: replyBody,
+        textBody: replyBody,
       });
     }
 
