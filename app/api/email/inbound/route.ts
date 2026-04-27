@@ -54,3 +54,15 @@ export async function POST(req: Request): Promise<Response> {
     return NextResponse.json({ status: "error" }, { status: 200 });
   }
 }
+
+// Health probe for Postmark's webhook URL validator. Postmark pings
+// the inbound URL with a GET before it'll save the configuration; the
+// default 405 from Next.js made it refuse the URL. Plain 200 + an
+// `endpoint` tag so this is identifiable in logs but exposes no
+// sensitive information.
+export async function GET() {
+  return new Response(
+    JSON.stringify({ status: "ok", endpoint: "email-inbound" }),
+    { status: 200, headers: { "Content-Type": "application/json" } },
+  );
+}
