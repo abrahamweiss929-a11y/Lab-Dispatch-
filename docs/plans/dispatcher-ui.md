@@ -9,7 +9,7 @@ Give a signed-in dispatcher (or admin acting as one) a working, mock-backed UI t
 
 ## Out of scope
 - Real Supabase storage adapter. `createRealStorageService()` gains matching `notConfigured()` stubs for every new method; no live DB calls.
-- Real Mapbox map rendering on `/dispatcher/map`. The page lists driver rows with their last lat/lng plus an on-page note "this becomes a real map when `MAPBOX_TOKEN` is wired." Deferred until Mapbox integration lands.
+- Real Mapbox map rendering on `/dispatcher/map`. The page lists driver rows with their last lat/lng plus an on-page note "this becomes a real map when `NEXT_PUBLIC_MAPBOX_TOKEN` is wired." Deferred until Mapbox integration lands.
 - Real-time updates. Every page is a static server component that re-renders on refresh (or after a server action's `revalidatePath`). No Supabase Realtime, no polling, no WebSocket. SPEC mentions GPS sampling every 1–2 minutes — that is a future driver-side concern; this feature consumes whatever locations happen to be in storage at read time.
 - Automatic route optimization (SPEC v1 OUT).
 - AI re-parsing of flagged messages. "Convert to request" creates a blank-ish `pending` pickup request that the dispatcher fills out; it does not re-invoke Claude. A separate future feature can re-queue messages for AI.
@@ -152,7 +152,7 @@ See the "Interfaces / contracts" section for full signatures. At a glance:
 
 ### New: driver location snapshot page
 - `/Users/abraham/lab-dispatch/app/dispatcher/map/page.tsx` — server component. `requireDispatcherSession()`, then `listDriverLocations({ sinceMinutes: 15 })` + `listDrivers()` in parallel. Zips locations to drivers by `driverId`. Renders:
-  - A prominent on-page note in an `<aside>` / callout block: "This becomes a real map when `MAPBOX_TOKEN` is wired. For now, it shows the last-known location of every driver who pinged in the past 15 minutes."
+  - A prominent on-page note in an `<aside>` / callout block: "This becomes a real map when `NEXT_PUBLIC_MAPBOX_TOKEN` is wired. For now, it shows the last-known location of every driver who pinged in the past 15 minutes."
   - A table: Driver name, Recorded at (via `formatShortDateTime`), Lat (6 decimal places), Lng (6 decimal places), On route? (yes if `routeId` present — link to `/dispatcher/routes/${routeId}`).
   - Drivers with no recent ping appear below the table in a muted "Not reporting" list. This requires joining `listDrivers()` (all) against the location set to surface the absentees.
 
@@ -174,7 +174,7 @@ See the "Interfaces / contracts" section for full signatures. At a glance:
 - `/Users/abraham/lab-dispatch/mocks/storage.ts` — add internal state maps for `routes`, `stops`, `driverLocations`, `messages`; implement every new method; extend `updatePickupRequestStatus` to accept and store `flaggedReason`; update `resetStorageMock()` to clear the new maps; add optional test helpers `seedRoute`, `seedStop`, `seedDriverLocation`, `seedMessage` for test setup (exported like the existing `getDriverAccount` test helper — NOT part of the interface).
 - `/Users/abraham/lab-dispatch/mocks/storage.test.ts` — extend with cases for every new method (see Tests section).
 - `/Users/abraham/lab-dispatch/BUILD_LOG.md` — append a dated entry.
-- `/Users/abraham/lab-dispatch/BLOCKERS.md` — no new top-level entries. The existing `[supabase]` entry is already load-bearing; if it doesn't already mention Realtime, append a one-line sub-bullet under "Workaround in place": "Dispatcher UI reads `driver_locations` as a static snapshot; real Supabase Realtime subscription wires in a future feature." (If the entry already notes this, no edit.) Separately, add a new `[mapbox]` entry if one does not exist: "Dispatcher map page lists driver rows instead of rendering a real map. Unblocks when `MAPBOX_TOKEN` is set and the Mapbox GL JS client is integrated. See `/dispatcher/map` on-page note."
+- `/Users/abraham/lab-dispatch/BLOCKERS.md` — no new top-level entries. The existing `[supabase]` entry is already load-bearing; if it doesn't already mention Realtime, append a one-line sub-bullet under "Workaround in place": "Dispatcher UI reads `driver_locations` as a static snapshot; real Supabase Realtime subscription wires in a future feature." (If the entry already notes this, no edit.) Separately, add a new `[mapbox]` entry if one does not exist: "Dispatcher map page lists driver rows instead of rendering a real map. Unblocks when `NEXT_PUBLIC_MAPBOX_TOKEN` is set and the Mapbox GL JS client is integrated. See `/dispatcher/map` on-page note."
 
 ## Interfaces / contracts
 

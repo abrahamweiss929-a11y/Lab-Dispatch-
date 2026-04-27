@@ -32,9 +32,9 @@ export default async function DispatcherMapPage() {
             Driver pings from the last 15 minutes.
           </h2>
           <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            This becomes a real Mapbox view when <code>MAPBOX_TOKEN</code> is
-            wired. For now, the table below keeps the same operational data
-            visible.
+            This becomes a real Mapbox view when{" "}
+            <code>NEXT_PUBLIC_MAPBOX_TOKEN</code> is wired. For now, the table
+            below keeps the same operational data visible.
           </p>
         </div>
       </section>
