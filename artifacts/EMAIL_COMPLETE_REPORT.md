@@ -10,6 +10,7 @@ Branch: `feat/email-complete` off `main` @ `0e7bb0f`.
 | Phase 3 — 5 outbound triggers | `849383a` | `feat(email): wire 5 outbound triggers (3a-3e)` |
 | Phase 4 — Inbound webhook auth | `af35492` | `feat(email): inbound webhook auth + parser-driven payload normalization` |
 | Phase 5 — Messages UI | `859470c` | `feat(messages): /dispatcher/messages/[id] detail + email/SMS reply` |
+| Phase 8 — Build fix   | `30e4fb2` | `fix(actions): extract form-state from "use server" files for build compatibility` |
 
 (Hashes copied from `git log --oneline`. Re-run that command to see
 current state — the values above are point-in-time.)
