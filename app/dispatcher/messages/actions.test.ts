@@ -16,9 +16,9 @@ vi.mock("@/lib/require-dispatcher", () => ({
 
 import {
   convertMessageToRequestAction,
-  INITIAL_SIMULATE_INBOUND_STATE,
   simulateInboundAction,
 } from "./actions";
+import { INITIAL_SIMULATE_INBOUND_STATE } from "./form-state";
 import { storageMock, resetStorageMock, seedMessage } from "@/mocks/storage";
 
 describe("dispatcher/messages server actions", () => {

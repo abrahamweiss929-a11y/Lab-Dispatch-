@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getServices } from "@/interfaces";
 import { handleInboundMessage } from "@/lib/inbound-pipeline";
 import { requireDispatcherSession } from "@/lib/require-dispatcher";
+import type { SimulateInboundFormState } from "./form-state";
 
 export async function convertMessageToRequestAction(
   messageId: string,
@@ -13,16 +14,6 @@ export async function convertMessageToRequestAction(
   revalidatePath("/dispatcher/messages");
   revalidatePath("/dispatcher/requests");
 }
-
-export type SimulateInboundFormState =
-  | { status: "idle"; message: null }
-  | { status: "ok"; message: string }
-  | { status: "error"; message: string };
-
-export const INITIAL_SIMULATE_INBOUND_STATE: SimulateInboundFormState = {
-  status: "idle",
-  message: null,
-};
 
 function bannerFor(
   resultStatus: "received" | "flagged" | "unknown_sender" | "error",

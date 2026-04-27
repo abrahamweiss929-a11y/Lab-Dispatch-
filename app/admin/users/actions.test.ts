@@ -21,11 +21,8 @@ vi.mock("@/lib/require-admin", () => ({
   requireAdminSession: () => requireAdminSessionMock(),
 }));
 
-import {
-  INITIAL_CREATE_INVITE_STATE,
-  createInviteAction,
-  revokeInviteAction,
-} from "./actions";
+import { createInviteAction, revokeInviteAction } from "./actions";
+import { INITIAL_CREATE_INVITE_STATE } from "./form-state";
 import {
   getInviteByToken,
   listInvites,

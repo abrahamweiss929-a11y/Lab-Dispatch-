@@ -5,17 +5,7 @@ import { acceptInvite } from "@/lib/invites-store";
 import { setSession } from "@/lib/session";
 import { landingPathFor } from "@/lib/auth-rules";
 import { makeRandomId } from "@/lib/ids";
-
-export type AcceptInviteFormState =
-  | { status: "idle" }
-  | {
-      status: "error";
-      reason: "not_found" | "expired" | "revoked" | "already_accepted";
-    };
-
-export const INITIAL_ACCEPT_INVITE_STATE: AcceptInviteFormState = {
-  status: "idle",
-};
+import type { AcceptInviteFormState } from "./form-state";
 
 /**
  * Accepts an invite using the URL token. In mock mode this also signs
