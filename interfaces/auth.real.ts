@@ -43,8 +43,15 @@ const GET_CURRENT_USER_DEFERRED =
   "getCurrentUser on the real auth adapter requires the cookie migration (STEP 4 in INTEGRATION_REPORT.md)";
 
 // Defensive enum guard against accidental `profiles.role` widening in a
-// future migration — trust the DB, but verify.
-const ALLOWED_ROLES: readonly UserRole[] = ["driver", "dispatcher", "admin"];
+// future migration — trust the DB, but verify. Post-2026-04-27 unification
+// 'office' is the canonical back-office role; 'admin' and 'dispatcher'
+// stay for backward compat with rows not yet migrated.
+const ALLOWED_ROLES: readonly UserRole[] = [
+  "driver",
+  "office",
+  "admin",
+  "dispatcher",
+];
 
 export function createRealAuthService(): AuthService {
   const sb = () => getSupabaseAdminClient();

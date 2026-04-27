@@ -282,4 +282,27 @@ describe("signInAction — real mode (USE_MOCKS=false)", () => {
     expect(realSignOutMock).toHaveBeenCalledTimes(1);
     expect(setSessionMock).not.toHaveBeenCalled();
   });
+
+  // Regression test for the post-2026-04-27 unification production
+  // bug: ALLOWED_ROLES in lib/session-codec.ts had ['driver','dispatcher',
+  // 'admin'] but profiles.role had been migrated to 'office', so
+  // signInAction was calling signOut() and surfacing
+  // "Invalid email or password" for every back-office user.
+  it("accepts the unified 'office' role: NO signOut, sets session, redirects to /dispatcher", async () => {
+    signInWithPasswordMock.mockResolvedValue({
+      data: { user: { id: "uuid-office-1" } },
+      error: null,
+    });
+    profileResponseQueue.push({ data: { role: "office" }, error: null });
+
+    await expect(
+      signInAction(
+        { error: null },
+        fd({ email: "office@example.com", password: "test1234", next: "" }),
+      ),
+    ).rejects.toThrow(/REDIRECT:\/dispatcher/);
+
+    expect(setSessionMock).toHaveBeenCalledWith("uuid-office-1", "office");
+    expect(realSignOutMock).not.toHaveBeenCalled();
+  });
 });

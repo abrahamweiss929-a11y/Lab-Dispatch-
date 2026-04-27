@@ -21,7 +21,16 @@ export interface SessionCookieValue {
   role: UserRole;
 }
 
-const ALLOWED_ROLES: readonly UserRole[] = ["driver", "dispatcher", "admin"];
+// Post-2026-04-27 unification: 'office' is the canonical back-office
+// role. 'admin' and 'dispatcher' stay in this list ONLY for backward
+// compatibility — any profile row that hasn't been migrated yet will
+// still authenticate. Driver is unchanged.
+const ALLOWED_ROLES: readonly UserRole[] = [
+  "driver",
+  "office",
+  "admin",
+  "dispatcher",
+];
 
 export function encodeSession(value: SessionCookieValue): string {
   return Buffer.from(JSON.stringify(value)).toString("base64");
