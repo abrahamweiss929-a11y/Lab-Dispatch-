@@ -10,19 +10,7 @@ import {
 } from "@/lib/invites-store";
 import { requireAdminSession } from "@/lib/require-admin";
 import type { Invite } from "@/lib/types";
-
-export type CreateInviteFormState =
-  | { status: "idle" }
-  | {
-      status: "ok";
-      invite: Invite;
-      acceptUrl: string;
-    }
-  | { status: "error"; error?: string; fieldErrors: Partial<Record<"email" | "role", string>> };
-
-export const INITIAL_CREATE_INVITE_STATE: CreateInviteFormState = {
-  status: "idle",
-};
+import type { CreateInviteFormState } from "./form-state";
 
 const ALLOWED_ROLES = new Set<Invite["role"]>(["office", "driver"]);
 

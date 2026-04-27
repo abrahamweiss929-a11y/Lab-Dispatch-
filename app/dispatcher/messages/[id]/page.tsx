@@ -117,8 +117,8 @@ export default async function DispatcherMessageDetailPage({
         ) : null}
         {!canReplyByEmail && !canReplyBySms ? (
           <p className="empty-state">
-            Reply isn't available for this message — email replies require a
-            sender that matches a known office.
+            Reply isn&apos;t available for this message — email replies require
+            a sender that matches a known office.
           </p>
         ) : null}
       </section>

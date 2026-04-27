@@ -4,22 +4,11 @@ import { revalidatePath } from "next/cache";
 import { getServices } from "@/interfaces";
 import { handleInboundMessage } from "@/lib/inbound-pipeline";
 import { requireDispatcherSession } from "@/lib/require-dispatcher";
-
-export type ReplyChannel = "email" | "sms";
-
-export type ReplyMessageFormState =
-  | { status: "idle"; error: null }
-  | { status: "ok"; sentTo: string; channel: ReplyChannel; error: null }
-  | {
-      status: "error";
-      error: string;
-      fieldErrors: Partial<Record<"to" | "subject" | "body", string>>;
-    };
-
-export const INITIAL_REPLY_MESSAGE_STATE: ReplyMessageFormState = {
-  status: "idle",
-  error: null,
-};
+import type {
+  ReplyChannel,
+  ReplyMessageFormState,
+  SimulateInboundFormState,
+} from "./form-state";
 
 /**
  * Sends a reply to an inbound message via email or SMS, and stores
@@ -117,16 +106,6 @@ export async function convertMessageToRequestAction(
   revalidatePath("/dispatcher/messages");
   revalidatePath("/dispatcher/requests");
 }
-
-export type SimulateInboundFormState =
-  | { status: "idle"; message: null }
-  | { status: "ok"; message: string }
-  | { status: "error"; message: string };
-
-export const INITIAL_SIMULATE_INBOUND_STATE: SimulateInboundFormState = {
-  status: "idle",
-  message: null,
-};
 
 function bannerFor(
   resultStatus: "received" | "flagged" | "unknown_sender" | "error",

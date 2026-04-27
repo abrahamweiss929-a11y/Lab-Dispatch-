@@ -16,11 +16,13 @@ vi.mock("@/lib/require-dispatcher", () => ({
 
 import {
   convertMessageToRequestAction,
-  INITIAL_REPLY_MESSAGE_STATE,
-  INITIAL_SIMULATE_INBOUND_STATE,
   sendReplyAction,
   simulateInboundAction,
 } from "./actions";
+import {
+  INITIAL_REPLY_MESSAGE_STATE,
+  INITIAL_SIMULATE_INBOUND_STATE,
+} from "./form-state";
 import { storageMock, resetStorageMock, seedMessage } from "@/mocks/storage";
 import { getSentEmails, resetEmailMock } from "@/mocks/email";
 import { getSent as getSentSms, resetSmsMock } from "@/mocks/sms";

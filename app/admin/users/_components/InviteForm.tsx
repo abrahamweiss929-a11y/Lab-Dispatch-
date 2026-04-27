@@ -1,10 +1,8 @@
 "use client";
 
 import { useFormState, useFormStatus } from "react-dom";
-import {
-  INITIAL_CREATE_INVITE_STATE,
-  createInviteAction,
-} from "../actions";
+import { createInviteAction } from "../actions";
+import { INITIAL_CREATE_INVITE_STATE } from "../form-state";
 
 function SubmitButton() {
   const { pending } = useFormStatus();

@@ -1,11 +1,11 @@
 "use client";
 
 import { useFormState, useFormStatus } from "react-dom";
+import { acceptInviteAction } from "../actions";
 import {
   INITIAL_ACCEPT_INVITE_STATE,
-  acceptInviteAction,
   type AcceptInviteFormState,
-} from "../actions";
+} from "../form-state";
 
 const REASON_COPY: Record<
   Exclude<AcceptInviteFormState, { status: "idle" }>["reason"],

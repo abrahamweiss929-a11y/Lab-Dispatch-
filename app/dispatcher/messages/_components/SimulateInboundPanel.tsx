@@ -1,11 +1,11 @@
 "use client";
 
 import { useFormState } from "react-dom";
+import { simulateInboundAction } from "../actions";
 import {
   INITIAL_SIMULATE_INBOUND_STATE,
-  simulateInboundAction,
   type SimulateInboundFormState,
-} from "../actions";
+} from "../form-state";
 
 function Banner({
   state,

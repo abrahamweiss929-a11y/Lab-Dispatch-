@@ -13,10 +13,8 @@ vi.mock("@/lib/session", () => ({
   setSession: (userId: string, role: string) => setSessionMock(userId, role),
 }));
 
-import {
-  INITIAL_ACCEPT_INVITE_STATE,
-  acceptInviteAction,
-} from "./actions";
+import { acceptInviteAction } from "./actions";
+import { INITIAL_ACCEPT_INVITE_STATE } from "./form-state";
 import {
   createInvite,
   getInviteByToken,

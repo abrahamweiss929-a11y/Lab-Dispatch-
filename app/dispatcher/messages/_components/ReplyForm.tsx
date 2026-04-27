@@ -1,11 +1,11 @@
 "use client";
 
 import { useFormState, useFormStatus } from "react-dom";
+import { sendReplyAction } from "../actions";
 import {
   INITIAL_REPLY_MESSAGE_STATE,
-  sendReplyAction,
   type ReplyChannel,
-} from "../actions";
+} from "../form-state";
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
