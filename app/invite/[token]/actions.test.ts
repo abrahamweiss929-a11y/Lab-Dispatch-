@@ -21,10 +21,12 @@ import {
   resetInviteStore,
   revokeInvite,
 } from "@/lib/invites-store";
+import { getSentEmails, resetEmailMock } from "@/mocks/email";
 
 describe("invite accept action", () => {
   beforeEach(() => {
     resetInviteStore();
+    resetEmailMock();
     redirectMock.mockClear();
     setSessionMock.mockReset();
   });
@@ -86,6 +88,49 @@ describe("invite accept action", () => {
     expect(result.status).toBe("error");
     if (result.status !== "error") return;
     expect(result.reason).toBe("revoked");
+  });
+
+  it("sends a welcome email after accepting (office role -> /dispatcher landing url)", async () => {
+    const invite = createInvite({
+      email: "newhire@x.com",
+      role: "office",
+      invitedByProfileId: "admin-1",
+    });
+
+    await expect(
+      acceptInviteAction(invite.token, INITIAL_ACCEPT_INVITE_STATE),
+    ).rejects.toThrow(/REDIRECT/);
+
+    const sent = getSentEmails();
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.to).toBe("newhire@x.com");
+    expect(sent[0]?.subject).toBe("Welcome to Lab Dispatch");
+    expect(sent[0]?.textBody).toContain(
+      "https://labdispatch.app/dispatcher",
+    );
+  });
+
+  it("redirect succeeds even when welcome email fails (failure isolated)", async () => {
+    const invite = createInvite({
+      email: "newhire@x.com",
+      role: "driver",
+      invitedByProfileId: "admin-1",
+    });
+
+    const services = (await import("@/interfaces")).getServices();
+    const original = services.email.sendEmail;
+    services.email.sendEmail = async () => {
+      throw new Error("Postmark down");
+    };
+    try {
+      await expect(
+        acceptInviteAction(invite.token, INITIAL_ACCEPT_INVITE_STATE),
+      ).rejects.toThrow(/REDIRECT:\/driver/);
+    } finally {
+      services.email.sendEmail = original;
+    }
+    // Invite still marked accepted
+    expect(getInviteByToken(invite.token)?.status).toBe("accepted");
   });
 
   it("returns already_accepted on second use of the same token", async () => {

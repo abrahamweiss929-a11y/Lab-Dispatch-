@@ -81,7 +81,7 @@ describe("handleInboundMessage", () => {
     expect(emails).toHaveLength(1);
     expect(emails[0]?.to).toBe("unknown@random.test");
     expect(emails[0]?.subject).toBe("Re: Pickup?");
-    expect(emails[0]?.body).toMatch(/isn't set up for pickups yet/);
+    expect(emails[0]?.textBody).toMatch(/isn't set up for pickups yet/);
   });
 
   it("unknown SMS sender with unparseable from: stores raw, sends no SMS", async () => {
@@ -202,7 +202,7 @@ describe("handleInboundMessage", () => {
     expect(emails).toHaveLength(1);
     expect(emails[0]?.to).toBe("front-desk@acme.test");
     expect(emails[0]?.subject).toBe("Re: Pickup today");
-    expect(emails[0]?.body).toContain("for 2 samples");
+    expect(emails[0]?.textBody).toContain("for 2 samples");
     expect(getSent()).toHaveLength(0);
   });
 

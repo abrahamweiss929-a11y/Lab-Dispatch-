@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { getServices } from "@/interfaces";
 import { formatShortDateTime } from "@/lib/dates";
+import {
+  buildDriverArrived,
+  buildSamplesPickedUp,
+} from "@/lib/email-templates";
 import { canDriverCheckInStop } from "@/lib/permissions";
 import { requireDriverSession } from "@/lib/require-driver";
 import type { SessionCookieValue } from "@/lib/session";
@@ -40,8 +44,45 @@ async function loadActiveStopForDriver(
 
 export async function arriveAtStopAction(stopId: string): Promise<void> {
   const session = await requireDriverSession();
-  await loadActiveStopForDriver(stopId, session);
-  await getServices().storage.markStopArrived(stopId);
+  const { stop } = await loadActiveStopForDriver(stopId, session);
+  const services = getServices();
+  const storage = services.storage;
+  await storage.markStopArrived(stopId);
+
+  // Best-effort "driver arrived" email to the originating office.
+  // Silent no-op when there's no office or no email on file. Failures
+  // swallowed — the arrival is already persisted; an email outage must
+  // not roll it back.
+  try {
+    const request = await storage.getPickupRequest(stop.pickupRequestId);
+    const officeId = request?.officeId;
+    if (officeId !== undefined) {
+      const office = await storage.getOffice(officeId);
+      if (
+        office !== null &&
+        office !== undefined &&
+        office.email !== undefined &&
+        office.email.length > 0
+      ) {
+        const driver = await storage.getDriver(session.userId);
+        const tpl = buildDriverArrived({
+          officeName: office.name,
+          driverName: driver?.fullName,
+          arrivedAt: formatShortDateTime(new Date().toISOString()),
+        });
+        await services.email.sendEmail({
+          to: office.email,
+          subject: tpl.subject,
+          textBody: tpl.textBody,
+          htmlBody: tpl.htmlBody,
+        });
+      }
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("arriveAtStopAction: notification email failed", err);
+  }
+
   revalidatePath("/driver/route");
   revalidatePath(`/driver/route/${stopId}`);
   revalidatePath("/driver");
@@ -79,6 +120,41 @@ export async function pickupStopAction(stopId: string): Promise<void> {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("pickupStopAction: notification SMS failed", err);
+  }
+
+  // Best-effort "samples picked up" email to the originating office.
+  // Independent of the SMS path so an email failure can't suppress
+  // the SMS or vice versa. Both branches share the same swallow-and-
+  // log discipline.
+  try {
+    const request = await storage.getPickupRequest(stop.pickupRequestId);
+    const officeId = request?.officeId;
+    if (officeId !== undefined) {
+      const office = await storage.getOffice(officeId);
+      if (
+        office !== null &&
+        office !== undefined &&
+        office.email !== undefined &&
+        office.email.length > 0
+      ) {
+        const driver = await storage.getDriver(session.userId);
+        const tpl = buildSamplesPickedUp({
+          officeName: office.name,
+          driverName: driver?.fullName,
+          pickedUpAt: formatShortDateTime(new Date().toISOString()),
+          sampleCount: request?.sampleCount,
+        });
+        await services.email.sendEmail({
+          to: office.email,
+          subject: tpl.subject,
+          textBody: tpl.textBody,
+          htmlBody: tpl.htmlBody,
+        });
+      }
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("pickupStopAction: notification email failed", err);
   }
 
   // Auto-complete the route when every stop on it is now picked up.

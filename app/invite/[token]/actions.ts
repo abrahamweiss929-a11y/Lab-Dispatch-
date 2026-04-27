@@ -1,9 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { getServices } from "@/interfaces";
 import { acceptInvite } from "@/lib/invites-store";
 import { setSession } from "@/lib/session";
 import { landingPathFor } from "@/lib/auth-rules";
+import { buildWelcomeEmail } from "@/lib/email-templates";
 import { makeRandomId } from "@/lib/ids";
 import type { AcceptInviteFormState } from "./form-state";
 
@@ -28,5 +30,21 @@ export async function acceptInviteAction(
     return { status: "error", reason: result.outcome.status };
   }
   await setSession(acceptedByProfileId, result.invite!.role);
+
+  // Best-effort welcome email. Failures are swallowed so a Postmark
+  // outage doesn't block the redirect to the role landing page.
+  try {
+    const tpl = buildWelcomeEmail({ role: result.invite!.role });
+    await getServices().email.sendEmail({
+      to: result.invite!.email,
+      subject: tpl.subject,
+      textBody: tpl.textBody,
+      htmlBody: tpl.htmlBody,
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("acceptInviteAction: welcome email failed", err);
+  }
+
   redirect(landingPathFor(result.invite!.role));
 }

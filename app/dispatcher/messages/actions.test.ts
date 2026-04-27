@@ -16,10 +16,16 @@ vi.mock("@/lib/require-dispatcher", () => ({
 
 import {
   convertMessageToRequestAction,
+  sendReplyAction,
   simulateInboundAction,
 } from "./actions";
-import { INITIAL_SIMULATE_INBOUND_STATE } from "./form-state";
+import {
+  INITIAL_REPLY_MESSAGE_STATE,
+  INITIAL_SIMULATE_INBOUND_STATE,
+} from "./form-state";
 import { storageMock, resetStorageMock, seedMessage } from "@/mocks/storage";
+import { getSentEmails, resetEmailMock } from "@/mocks/email";
+import { getSent as getSentSms, resetSmsMock } from "@/mocks/sms";
 
 describe("dispatcher/messages server actions", () => {
   beforeEach(() => {
@@ -176,5 +182,148 @@ describe("simulateInboundAction", () => {
     ).rejects.toThrow(/REDIRECT:\/login/);
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
+  });
+});
+
+function fd(entries: Record<string, string>): FormData {
+  const f = new FormData();
+  for (const [k, v] of Object.entries(entries)) f.set(k, v);
+  return f;
+}
+
+describe("dispatcher/messages — sendReplyAction", () => {
+  beforeEach(() => {
+    resetStorageMock();
+    resetEmailMock();
+    resetSmsMock();
+    revalidatePathMock.mockClear();
+    requireDispatcherSessionMock.mockReset();
+    requireDispatcherSessionMock.mockReturnValue({
+      userId: "dispatcher-test",
+      role: "dispatcher",
+    });
+  });
+
+  it("happy path: sends an email reply, audit-logs the message, revalidates", async () => {
+    const result = await sendReplyAction(
+      INITIAL_REPLY_MESSAGE_STATE,
+      fd({
+        channel: "email",
+        to: "doc@example.com",
+        subject: "Re: Pickup",
+        body: "we got your request, eta 2h",
+        messageId: "msg-99",
+      }),
+    );
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.sentTo).toBe("doc@example.com");
+    expect(result.channel).toBe("email");
+
+    const emails = getSentEmails();
+    expect(emails).toHaveLength(1);
+    expect(emails[0]?.to).toBe("doc@example.com");
+    expect(emails[0]?.subject).toBe("Re: Pickup");
+    expect(emails[0]?.textBody).toContain("we got your request");
+
+    const stored = await storageMock.listMessages();
+    const out = stored.find((m) => m.body.includes("eta 2h"));
+    expect(out).toBeTruthy();
+    expect(out?.channel).toBe("email");
+
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dispatcher/messages");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dispatcher/messages/msg-99");
+  });
+
+  it("happy path: sends an SMS reply (no subject required)", async () => {
+    const result = await sendReplyAction(
+      INITIAL_REPLY_MESSAGE_STATE,
+      fd({
+        channel: "sms",
+        to: "+15551234567",
+        subject: "",
+        body: "on our way",
+        messageId: "msg-100",
+      }),
+    );
+
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") return;
+    expect(result.channel).toBe("sms");
+    const sms = getSentSms();
+    expect(sms).toHaveLength(1);
+    expect(sms[0]?.body).toBe("on our way");
+    expect(getSentEmails()).toHaveLength(0);
+  });
+
+  it("rejects email reply with empty subject", async () => {
+    const result = await sendReplyAction(
+      INITIAL_REPLY_MESSAGE_STATE,
+      fd({ channel: "email", to: "x@y.com", subject: "", body: "hi" }),
+    );
+    expect(result.status).toBe("error");
+    if (result.status !== "error") return;
+    expect(result.fieldErrors.subject).toBeTruthy();
+    expect(getSentEmails()).toHaveLength(0);
+  });
+
+  it("rejects when the body is empty", async () => {
+    const result = await sendReplyAction(
+      INITIAL_REPLY_MESSAGE_STATE,
+      fd({ channel: "sms", to: "+15551234567", body: "" }),
+    );
+    expect(result.status).toBe("error");
+    if (result.status !== "error") return;
+    expect(result.fieldErrors.body).toBeTruthy();
+    expect(getSentSms()).toHaveLength(0);
+  });
+
+  it("rejects an unknown channel", async () => {
+    const result = await sendReplyAction(
+      INITIAL_REPLY_MESSAGE_STATE,
+      fd({ channel: "fax", to: "x", body: "y" }),
+    );
+    expect(result.status).toBe("error");
+    if (result.status !== "error") return;
+    expect(result.error).toMatch(/email.*sms/i);
+  });
+
+  it("surfaces send failures (does NOT swallow — dispatcher needs to know)", async () => {
+    const services = (await import("@/interfaces")).getServices();
+    const original = services.email.sendEmail;
+    services.email.sendEmail = async () => {
+      throw new Error("Postmark down");
+    };
+    try {
+      const result = await sendReplyAction(
+        INITIAL_REPLY_MESSAGE_STATE,
+        fd({
+          channel: "email",
+          to: "x@y.com",
+          subject: "hi",
+          body: "test",
+        }),
+      );
+      expect(result.status).toBe("error");
+      if (result.status !== "error") return;
+      expect(result.error).toMatch(/Postmark down/);
+    } finally {
+      services.email.sendEmail = original;
+    }
+  });
+
+  it("bails on auth failure", async () => {
+    requireDispatcherSessionMock.mockImplementationOnce(() => {
+      throw new Error("REDIRECT:/login");
+    });
+    await expect(
+      sendReplyAction(
+        INITIAL_REPLY_MESSAGE_STATE,
+        fd({ channel: "sms", to: "+1", body: "x" }),
+      ),
+    ).rejects.toThrow(/REDIRECT:\/login/);
+    expect(getSentSms()).toHaveLength(0);
+    expect(getSentEmails()).toHaveLength(0);
   });
 });

@@ -90,7 +90,14 @@ export default async function DispatcherMessagesPage({
                   <td className="px-4 py-2">
                     {m.subject && m.subject.length > 0 ? m.subject : "—"}
                   </td>
-                  <td className="px-4 py-2">{truncate(m.body)}</td>
+                  <td className="px-4 py-2">
+                    <Link
+                      href={`/dispatcher/messages/${m.id}`}
+                      className="link"
+                    >
+                      {truncate(m.body)}
+                    </Link>
+                  </td>
                   <td className="px-4 py-2">
                     {m.pickupRequestId
                       ? (
@@ -102,8 +109,17 @@ export default async function DispatcherMessagesPage({
                       )}
                   </td>
                   <td className="px-4 py-2">
+                    <Link
+                      href={`/dispatcher/messages/${m.id}`}
+                      className="link"
+                    >
+                      Open
+                    </Link>
                     {m.pickupRequestId ? null : (
-                      <ConvertToRequestButton messageId={m.id} />
+                      <>
+                        {" · "}
+                        <ConvertToRequestButton messageId={m.id} />
+                      </>
                     )}
                   </td>
                 </tr>

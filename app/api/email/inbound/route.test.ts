@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const handleInboundMessageMock = vi.fn<[unknown], unknown>();
 const tryConsumeMock = vi.fn<[string], boolean>(() => true);
@@ -15,21 +15,59 @@ vi.mock("@/lib/inbound-rate-limits", () => ({
 
 import { POST } from "./route";
 
-function jsonRequest(payload: unknown): Request {
-  return new Request("https://example.test/api/email/inbound", {
+const TEST_TOKEN = "test-secret-abc-123";
+const ORIGINAL_ENV = { ...process.env };
+
+beforeEach(() => {
+  process.env = { ...ORIGINAL_ENV, POSTMARK_INBOUND_WEBHOOK_TOKEN: TEST_TOKEN };
+  handleInboundMessageMock.mockReset();
+  tryConsumeMock.mockReset();
+  tryConsumeMock.mockReturnValue(true);
+});
+
+afterEach(() => {
+  process.env = { ...ORIGINAL_ENV };
+});
+
+function jsonRequest(payload: unknown, token: string | null = TEST_TOKEN): Request {
+  const url =
+    token === null
+      ? "https://example.test/api/email/inbound"
+      : `https://example.test/api/email/inbound?token=${encodeURIComponent(token)}`;
+  return new Request(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
   });
 }
 
-describe("POST /api/email/inbound", () => {
-  beforeEach(() => {
-    handleInboundMessageMock.mockReset();
-    tryConsumeMock.mockReset();
-    tryConsumeMock.mockReturnValue(true);
+describe("POST /api/email/inbound — auth", () => {
+  it("returns 401 when ?token is missing", async () => {
+    const res = await POST(jsonRequest({ From: "x@y.com", TextBody: "hi" }, null));
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ status: "invalid_signature" });
+    expect(handleInboundMessageMock).not.toHaveBeenCalled();
   });
 
+  it("returns 401 when ?token is wrong", async () => {
+    const res = await POST(
+      jsonRequest({ From: "x@y.com", TextBody: "hi" }, "wrong-token"),
+    );
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ status: "invalid_signature" });
+    expect(handleInboundMessageMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 401 (fail-closed) when POSTMARK_INBOUND_WEBHOOK_TOKEN env is unset", async () => {
+    delete process.env.POSTMARK_INBOUND_WEBHOOK_TOKEN;
+    const res = await POST(jsonRequest({ From: "x@y.com", TextBody: "hi" }));
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ status: "invalid_signature" });
+    expect(handleInboundMessageMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/email/inbound — happy path", () => {
   it("happy: parses JSON body, calls pipeline with TextBody, returns 200 with result", async () => {
     handleInboundMessageMock.mockResolvedValueOnce({
       status: "received",
@@ -57,6 +95,26 @@ describe("POST /api/email/inbound", () => {
       subject: "Pickup",
       body: "2 samples please",
     });
+  });
+
+  it("uses FromFull.Email over From when both present (parser preference)", async () => {
+    handleInboundMessageMock.mockResolvedValueOnce({
+      status: "received",
+      requestId: "r",
+      messageId: "m",
+    });
+
+    await POST(
+      jsonRequest({
+        From: "John Doe <john@acme.test>",
+        FromFull: { Email: "john@acme.test", Name: "John Doe" },
+        TextBody: "hi",
+      }),
+    );
+
+    expect(handleInboundMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({ from: "john@acme.test" }),
+    );
   });
 
   it("falls back to HtmlBody when TextBody is absent", async () => {
@@ -101,11 +159,14 @@ describe("POST /api/email/inbound", () => {
   });
 
   it("returns invalid_payload when the body is not JSON", async () => {
-    const req = new Request("https://example.test/api/email/inbound", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: "not json",
-    });
+    const req = new Request(
+      `https://example.test/api/email/inbound?token=${TEST_TOKEN}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "not json",
+      },
+    );
     const res = await POST(req);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ status: "invalid_payload" });

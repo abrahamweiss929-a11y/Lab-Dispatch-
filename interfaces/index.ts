@@ -19,7 +19,7 @@ import type {
   EmailSendParams,
   EmailSendResult,
   EmailService,
-  InboundEmailPayload,
+  ParsedInboundEmail,
   SentEmailRecord,
 } from "./email";
 import type {
@@ -138,7 +138,6 @@ export type {
   EmailService,
   EtaParams,
   EtaResult,
-  InboundEmailPayload,
   LatLng,
   ListDriverLocationsFilter,
   ListMessagesFilter,
@@ -152,6 +151,7 @@ export type {
   NewOffice,
   NewPickupRequest,
   NewRoute,
+  ParsedInboundEmail,
   ParsePickupMessageParams,
   ParsePickupMessageResult,
   RouteFromStopsParams,

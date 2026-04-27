@@ -81,8 +81,11 @@ describe("submitPickupRequestAction", () => {
     const emails = getSentEmails();
     expect(emails).toHaveLength(1);
     expect(emails[0]?.to).toBe("front-desk@acme.test");
-    expect(emails[0]?.subject).toContain("Acme Clinic");
-    expect(emails[0]?.body).toContain("within about 2 hours");
+    expect(emails[0]?.subject).toBe("Pickup request received — Lab Dispatch");
+    expect(emails[0]?.textBody).toContain("Acme Clinic");
+    expect(emails[0]?.textBody).toContain("within about 2 hours");
+    // htmlBody now also rendered by buildPickupConfirmation
+    expect(emails[0]?.htmlBody).toContain("Acme Clinic");
   });
 
   it("defaults urgency to routine when the field is blank", async () => {

@@ -20,17 +20,20 @@ export const emailMock: EmailService = {
     if (!params.to) {
       throw new Error("to is required");
     }
-    const id = `email-mock-${state.counter}`;
+    const messageId = `email-mock-${state.counter}`;
     state.counter += 1;
     const record: SentEmailRecord = {
       to: params.to,
       subject: params.subject,
-      body: params.body,
-      id,
+      textBody: params.textBody,
+      htmlBody: params.htmlBody,
+      fromName: params.fromName,
+      replyTo: params.replyTo,
+      messageId,
       sentAt: new Date().toISOString(),
     };
     state.sent.push(record);
-    return { id };
+    return { messageId };
   },
 };
 

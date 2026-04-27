@@ -1,39 +1,44 @@
 import { NextResponse } from "next/server";
+import {
+  parseInboundWebhook,
+  verifyInboundSignature,
+} from "@/interfaces/email";
 import { handleInboundMessage } from "@/lib/inbound-pipeline";
 import { emailInboundBucket } from "@/lib/inbound-rate-limits";
 
-interface EmailWebhookBody {
-  From?: unknown;
-  Subject?: unknown;
-  TextBody?: unknown;
-  HtmlBody?: unknown;
-}
-
-function asString(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
-// PUBLIC endpoint — deliberately NO session check. The `/api/` prefix is
-// in `PUBLIC_PATH_PREFIXES` (lib/auth-rules.ts) and this route has no
-// auth gate of its own. `emailInboundBucket` is the only abuse guard.
-// TODO(blockers:postmark) — real Postmark signature / secret-path
-// verification belongs here. Until then, any client that can reach this
-// URL can post inbound email payloads. See BLOCKERS.md [postmark].
+// PUBLIC endpoint — no session check. Authenticity is enforced by the
+// `?token=` query parameter, which must match `POSTMARK_INBOUND_WEBHOOK_TOKEN`
+// (constant-time compared in `verifyInboundSignature`). Requests without
+// a valid token are rejected with 401. `emailInboundBucket` adds per-
+// sender abuse protection on top.
+//
+// Postmark sends inbound webhooks as JSON. Postmark's authenticity model
+// is "secret token in the webhook URL" rather than HMAC-over-body, so the
+// verifier reads `?token=` from the URL and compares to the env var. When
+// the env var is unset the verifier returns false (fail-closed) — we'd
+// rather drop messages than accept unsigned ones.
 export async function POST(req: Request): Promise<Response> {
-  let parsed: EmailWebhookBody;
+  if (!verifyInboundSignature(req)) {
+    return NextResponse.json(
+      { status: "invalid_signature" },
+      { status: 401 },
+    );
+  }
+
+  let parsedJson: unknown;
   try {
-    parsed = (await req.json()) as EmailWebhookBody;
+    parsedJson = await req.json();
   } catch {
     return NextResponse.json({ status: "invalid_payload" }, { status: 200 });
   }
 
-  const from = asString(parsed.From);
-  const subject = asString(parsed.Subject);
-  const textBody = asString(parsed.TextBody);
-  const htmlBody = asString(parsed.HtmlBody);
-  const body = textBody ?? htmlBody;
+  const inbound = parseInboundWebhook(parsedJson);
+  const from = inbound.fromEmail;
+  const body =
+    inbound.bodyText.length > 0 ? inbound.bodyText : inbound.bodyHtml;
+  const subject = inbound.subject.length > 0 ? inbound.subject : undefined;
 
-  if (from === undefined || body === undefined) {
+  if (from.length === 0 || body.length === 0) {
     return NextResponse.json({ status: "invalid_payload" }, { status: 200 });
   }
 
