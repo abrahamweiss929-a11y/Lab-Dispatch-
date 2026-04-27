@@ -8,10 +8,16 @@ import type {
 const MOCK_PASSWORD = "test1234";
 
 // Seeded accounts keyed by lowercased email.
+//
+// As of the 2026-04-27 unification, admin@test and dispatcher@test both
+// resolve to role 'office' — same as what the production migration does
+// to existing profile rows. The legacy emails are kept so any operator
+// muscle-memory or smoke test that signs in as `admin@test` or
+// `dispatcher@test` still works.
 const SEEDED_ACCOUNTS: Record<string, Session> = {
   "driver@test": { userId: "user-driver", role: "driver" },
-  "dispatcher@test": { userId: "user-dispatcher", role: "dispatcher" },
-  "admin@test": { userId: "user-admin", role: "admin" },
+  "dispatcher@test": { userId: "user-dispatcher", role: "office" },
+  "admin@test": { userId: "user-admin", role: "office" },
 };
 
 interface AuthMockState {

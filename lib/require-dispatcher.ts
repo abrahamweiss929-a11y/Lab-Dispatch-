@@ -1,28 +1,21 @@
 import { redirect } from "next/navigation";
+import { isOfficeRole } from "@/lib/auth-rules";
 import { getSession, type SessionCookieValue } from "@/lib/session";
 
 /**
- * Belt-and-suspenders dispatcher gate for server components and server
- * actions under `/dispatcher/**`.
+ * Belt-and-suspenders gate for `/dispatcher/**` server components and
+ * server actions.
  *
- * The Edge middleware already denies non-(dispatcher|admin) traffic to
- * `/dispatcher/**`, but pages and actions call this anyway so a
- * misconfigured matcher cannot silently leak dispatcher pages to drivers
- * or anonymous traffic. On mismatch it triggers `redirect("/login")`,
- * which throws — callers can treat the return value as non-null.
+ * As of the 2026-04-27 unification, every back-office role
+ * (`office`, plus legacy `admin`/`dispatcher` for unmigrated rows)
+ * has full access. Drivers and anonymous traffic are denied.
  *
- * Admins are permitted because `evaluateAccess` already treats them as
- * allowed anywhere (they cover dispatch in emergencies and for dev
- * smoke).
+ * The Edge middleware enforces the same rule via `evaluateAccess`; this
+ * call exists so a misconfigured matcher cannot silently leak the page.
  */
 export async function requireDispatcherSession(): Promise<SessionCookieValue> {
   const session = await getSession();
-  if (
-    session === null ||
-    (session.role !== "dispatcher" &&
-      session.role !== "admin" &&
-      session.role !== "office")
-  ) {
+  if (session === null || !isOfficeRole(session.role)) {
     redirect("/login");
   }
   return session;

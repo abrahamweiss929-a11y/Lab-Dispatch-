@@ -54,11 +54,23 @@ describe("/admin/payroll/export GET", () => {
     return new Request(`http://localhost/admin/payroll/export?${qs}`);
   }
 
-  it("redirects non-admin sessions to /login", async () => {
-    getSessionMock.mockResolvedValue({ userId: "u", role: "dispatcher" });
+  it("redirects driver sessions to /login (only office roles allowed)", async () => {
+    // Post-unification: 'dispatcher' is admin-equivalent (back-office),
+    // so the driver is the only authenticated role that should be denied.
+    getSessionMock.mockResolvedValue({ userId: "u", role: "driver" });
     await expect(GET(makeRequest("preset=today"))).rejects.toThrow(
       /REDIRECT:\/login/,
     );
+  });
+
+  it("allows dispatcher and office sessions (post-unification)", async () => {
+    getSessionMock.mockResolvedValue({ userId: "u", role: "dispatcher" });
+    const resp = await GET(makeRequest("preset=today"));
+    expect(resp.status).toBe(200);
+
+    getSessionMock.mockResolvedValue({ userId: "u", role: "office" });
+    const resp2 = await GET(makeRequest("preset=today"));
+    expect(resp2.status).toBe(200);
   });
 
   it("returns CSV with correct headers and filename", async () => {

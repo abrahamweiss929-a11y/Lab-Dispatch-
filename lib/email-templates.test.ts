@@ -43,10 +43,10 @@ describe("buildInviteEmail", () => {
       expiresAt: "2026-05-03T00:00:00Z",
       invitedByName: "Admin Adams",
     });
-    expect(out.subject).toBe("You've been invited to Lab Dispatch");
+    expect(out.subject).toBe("You've been invited to Lab Dispatch as office staff");
     expect(out.textBody).toContain("https://labdispatch.app/invite/tok-abc");
     expect(out.textBody).toContain("Admin Adams");
-    expect(out.textBody).toContain("office staff");
+    expect(out.textBody).toContain("as office staff");
     expect(out.htmlBody).toContain(
       'href="https://labdispatch.app/invite/tok-abc"',
     );
@@ -59,7 +59,8 @@ describe("buildInviteEmail", () => {
       token: "tok",
       expiresAt: "2026-05-03T00:00:00Z",
     });
-    expect(out.textBody).toContain("driver");
+    expect(out.subject).toBe("You've been invited to Lab Dispatch as a driver");
+    expect(out.textBody).toContain("as a driver");
     expect(out.textBody).toContain("Your Lab Dispatch admin");
   });
 });

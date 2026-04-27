@@ -22,17 +22,34 @@ describe("requireAdminSession", () => {
     redirectMock.mockClear();
   });
 
-  it("returns the session when the user is an admin", async () => {
+  it("returns the session for the unified office role", async () => {
+    const session = { userId: "user-office", role: "office" as const };
+    getSessionMock.mockResolvedValue(session);
+    await expect(requireAdminSession()).resolves.toEqual(session);
+    expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it("returns the session for legacy admin role (backward compat)", async () => {
     const session = { userId: "user-admin", role: "admin" as const };
     getSessionMock.mockResolvedValue(session);
     await expect(requireAdminSession()).resolves.toEqual(session);
     expect(redirectMock).not.toHaveBeenCalled();
   });
 
-  it("redirects to /login when the user is a dispatcher", async () => {
-    getSessionMock.mockResolvedValue({
+  it("returns the session for legacy dispatcher role (backward compat)", async () => {
+    const session = {
       userId: "user-dispatcher",
-      role: "dispatcher",
+      role: "dispatcher" as const,
+    };
+    getSessionMock.mockResolvedValue(session);
+    await expect(requireAdminSession()).resolves.toEqual(session);
+    expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it("redirects to /login when the user is a driver", async () => {
+    getSessionMock.mockResolvedValue({
+      userId: "user-driver",
+      role: "driver",
     });
     await expect(requireAdminSession()).rejects.toThrow(/REDIRECT:\/login/);
     expect(redirectMock).toHaveBeenCalledWith("/login");

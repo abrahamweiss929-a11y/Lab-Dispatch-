@@ -10,12 +10,37 @@ export const PUBLIC_PATH_PREFIXES: readonly string[] = [
   "/favicon",
 ];
 
+/**
+ * Single-source-of-truth roleset for back-office (non-driver) users.
+ *
+ * As of the 2026-04-27 unification, only `office` is granted to new users.
+ * `admin` and `dispatcher` are kept in this list ONLY for backward
+ * compatibility with any profile rows that haven't yet been migrated by
+ * `supabase/migrations/2026-04-27-unify-office-role.sql`. After that
+ * migration is applied, no production row uses `admin` or `dispatcher`.
+ *
+ * All three values grant identical access to both the `/admin/*` and
+ * `/dispatcher/*` trees (which are aliases for the same surface).
+ */
+export const OFFICE_ROLES: readonly UserRole[] = [
+  "office",
+  "admin",
+  "dispatcher",
+];
+
+export function isOfficeRole(role: UserRole | null): boolean {
+  if (role === null) return false;
+  return (OFFICE_ROLES as readonly string[]).includes(role);
+}
+
 export const PROTECTED_TREES: Record<UserRole, string> = {
   driver: "/driver",
+  // Both `/dispatcher/*` and `/admin/*` are kept as routable URL trees;
+  // every back-office role lands here. The /dispatcher entry point hosts
+  // the unified day-to-day dashboard (Requests/Routes/Map/Messages on
+  // top, with Drivers/Doctors/Offices/Payroll/Users in the same nav).
   dispatcher: "/dispatcher",
-  admin: "/admin",
-  // `office` users land on the same dispatcher tree — same authority,
-  // different label. See UserRole comment in lib/types.ts.
+  admin: "/dispatcher",
   office: "/dispatcher",
 };
 
@@ -71,9 +96,9 @@ export function evaluateAccess(input: EvaluateAccessInput): AccessDecision {
   if (pathname === "/") return { action: "allow" };
   if (isPublicPath(pathname)) return { action: "allow" };
 
-  const underDriver = isUnderTree(pathname, PROTECTED_TREES.driver);
-  const underDispatcher = isUnderTree(pathname, PROTECTED_TREES.dispatcher);
-  const underAdmin = isUnderTree(pathname, PROTECTED_TREES.admin);
+  const underDriver = isUnderTree(pathname, "/driver");
+  const underDispatcher = isUnderTree(pathname, "/dispatcher");
+  const underAdmin = isUnderTree(pathname, "/admin");
 
   if (!underDriver && !underDispatcher && !underAdmin) {
     return { action: "allow" };
@@ -86,13 +111,12 @@ export function evaluateAccess(input: EvaluateAccessInput): AccessDecision {
     };
   }
 
-  if (role === "admin") {
+  // Unified office surface: any back-office role can reach both
+  // `/admin/*` and `/dispatcher/*`. They cannot reach `/driver/*` —
+  // that's the driver's mobile-first UI.
+  if (isOfficeRole(role)) {
+    if (underDriver) return { action: "redirect", to: landingPathFor(role) };
     return { action: "allow" };
-  }
-
-  if (role === "dispatcher" || role === "office") {
-    if (underDispatcher) return { action: "allow" };
-    return { action: "redirect", to: landingPathFor(role) };
   }
 
   // role === "driver"

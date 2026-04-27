@@ -34,9 +34,13 @@ interface SeedAccount {
 
 const TEMPORARY_PASSWORD = "test1234";
 
+// As of the 2026-04-27 unification, every back-office user gets role
+// 'office'. The legacy `admin@test` and `dispatcher@test` emails are
+// preserved so smoke-test muscle memory still works, but they
+// resolve to the same unified role.
 const ACCOUNTS: readonly SeedAccount[] = [
-  { email: "admin@test", role: "admin", fullName: "Test Admin" },
-  { email: "dispatcher@test", role: "dispatcher", fullName: "Test Dispatcher" },
+  { email: "admin@test", role: "office", fullName: "Test Admin" },
+  { email: "dispatcher@test", role: "office", fullName: "Test Dispatcher" },
   { email: "driver@test", role: "driver", fullName: "Test Driver" },
 ];
 
