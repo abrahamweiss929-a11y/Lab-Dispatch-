@@ -83,8 +83,9 @@ export function buildInviteEmail(p: InviteEmailParams): EmailTemplate {
       ? p.invitedByName
       : "Your Lab Dispatch admin";
 
-  const subject = "You've been invited to Lab Dispatch";
-  const textBody = `${invitedBy} invited you to Lab Dispatch as a ${roleLabel}.
+  const articleAndLabel = p.role === "driver" ? "as a driver" : "as office staff";
+  const subject = `You've been invited to Lab Dispatch ${articleAndLabel}`;
+  const textBody = `${invitedBy} invited you to Lab Dispatch ${articleAndLabel}.
 
 Set up your account here:
 ${url}
@@ -94,8 +95,8 @@ This link expires on ${expiry}. If it expires, ask the admin to send a new invit
 — Lab Dispatch`;
 
   const htmlBody = htmlShell(
-    "You've been invited to Lab Dispatch",
-    `<p>${escapeHtml(invitedBy)} invited you to Lab Dispatch as a <strong>${escapeHtml(roleLabel)}</strong>.</p>
+    subject,
+    `<p>${escapeHtml(invitedBy)} invited you to Lab Dispatch ${escapeHtml(articleAndLabel)} (${escapeHtml(roleLabel)}).</p>
 ${ctaButton(url, "Set up your account")}
 <p style="font-size: 14px; color: #6b6b6b;">This link expires on <strong>${escapeHtml(expiry)}</strong>. If it expires, ask the admin to send a new invite.</p>`,
   );

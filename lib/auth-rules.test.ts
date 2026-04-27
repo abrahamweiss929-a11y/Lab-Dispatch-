@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   evaluateAccess,
+  isOfficeRole,
   isPublicPath,
   landingPathFor,
   PROTECTED_TREES,
@@ -13,6 +14,7 @@ const ALL_ROLES: readonly (UserRole | null)[] = [
   "driver",
   "dispatcher",
   "admin",
+  "office",
 ];
 
 describe("PUBLIC_PATH_PREFIXES", () => {
@@ -29,22 +31,42 @@ describe("PUBLIC_PATH_PREFIXES", () => {
   });
 });
 
-describe("PROTECTED_TREES", () => {
-  it("maps each role to its root path", () => {
+describe("PROTECTED_TREES — post-unification", () => {
+  it("maps every back-office role (admin/dispatcher/office) to /dispatcher", () => {
+    // Driver still has its own tree. Every back-office role lands on
+    // /dispatcher (the unified office surface). /admin/* still works as
+    // an alias but isn't anyone's home.
     expect(PROTECTED_TREES).toEqual({
       driver: "/driver",
       dispatcher: "/dispatcher",
-      admin: "/admin",
+      admin: "/dispatcher",
       office: "/dispatcher",
     });
   });
 });
 
 describe("landingPathFor", () => {
-  it("returns the role's root path", () => {
+  it("returns /driver for drivers", () => {
     expect(landingPathFor("driver")).toBe("/driver");
+  });
+
+  it("returns /dispatcher for every back-office role (unified)", () => {
+    expect(landingPathFor("office")).toBe("/dispatcher");
+    expect(landingPathFor("admin")).toBe("/dispatcher");
     expect(landingPathFor("dispatcher")).toBe("/dispatcher");
-    expect(landingPathFor("admin")).toBe("/admin");
+  });
+});
+
+describe("isOfficeRole", () => {
+  it("returns true for office, admin, dispatcher (unified back-office set)", () => {
+    expect(isOfficeRole("office")).toBe(true);
+    expect(isOfficeRole("admin")).toBe(true);
+    expect(isOfficeRole("dispatcher")).toBe(true);
+  });
+
+  it("returns false for driver and null", () => {
+    expect(isOfficeRole("driver")).toBe(false);
+    expect(isOfficeRole(null)).toBe(false);
   });
 });
 
@@ -133,70 +155,49 @@ describe("evaluateAccess — driver role", () => {
   });
 });
 
-describe("evaluateAccess — dispatcher role", () => {
-  it("allows /dispatcher", () => {
-    expect(
-      evaluateAccess({ pathname: "/dispatcher", role: "dispatcher" }),
-    ).toEqual({ action: "allow" });
-    expect(
-      evaluateAccess({ pathname: "/dispatcher/queue", role: "dispatcher" }),
-    ).toEqual({ action: "allow" });
-  });
+describe("evaluateAccess — back-office roles (post-unification)", () => {
+  // Every back-office role gets identical access: both /admin/* and
+  // /dispatcher/* trees fully open. /driver/* remains off-limits.
+  const officeRoles: readonly UserRole[] = ["office", "admin", "dispatcher"];
 
-  it("redirects dispatcher hitting /driver or /admin to /dispatcher", () => {
-    expect(
-      evaluateAccess({ pathname: "/driver", role: "dispatcher" }),
-    ).toEqual({ action: "redirect", to: "/dispatcher" });
-    expect(evaluateAccess({ pathname: "/admin", role: "dispatcher" })).toEqual({
-      action: "redirect",
-      to: "/dispatcher",
+  for (const role of officeRoles) {
+    it(`role=${role} can reach /dispatcher and /admin trees`, () => {
+      expect(evaluateAccess({ pathname: "/dispatcher", role })).toEqual({
+        action: "allow",
+      });
+      expect(
+        evaluateAccess({ pathname: "/dispatcher/queue", role }),
+      ).toEqual({ action: "allow" });
+      expect(evaluateAccess({ pathname: "/admin", role })).toEqual({
+        action: "allow",
+      });
+      expect(
+        evaluateAccess({ pathname: "/admin/drivers", role }),
+      ).toEqual({ action: "allow" });
+      expect(
+        evaluateAccess({ pathname: "/admin/users", role }),
+      ).toEqual({ action: "allow" });
+      expect(
+        evaluateAccess({ pathname: "/admin/payroll", role }),
+      ).toEqual({ action: "allow" });
     });
-  });
-});
 
-describe("evaluateAccess — office role", () => {
-  it("allows /dispatcher (office shares dispatcher tree)", () => {
-    expect(evaluateAccess({ pathname: "/dispatcher", role: "office" })).toEqual(
-      { action: "allow" },
-    );
-    expect(
-      evaluateAccess({ pathname: "/dispatcher/queue", role: "office" }),
-    ).toEqual({ action: "allow" });
-  });
-
-  it("redirects office hitting /driver or /admin to /dispatcher", () => {
-    expect(evaluateAccess({ pathname: "/driver", role: "office" })).toEqual({
-      action: "redirect",
-      to: "/dispatcher",
+    it(`role=${role} cannot reach /driver tree (redirects to /dispatcher)`, () => {
+      expect(evaluateAccess({ pathname: "/driver", role })).toEqual({
+        action: "redirect",
+        to: "/dispatcher",
+      });
+      expect(
+        evaluateAccess({ pathname: "/driver/route", role }),
+      ).toEqual({ action: "redirect", to: "/dispatcher" });
     });
-    expect(evaluateAccess({ pathname: "/admin", role: "office" })).toEqual({
-      action: "redirect",
-      to: "/dispatcher",
-    });
-  });
+  }
 });
 
 describe("evaluateAccess — /invite is a public path", () => {
   it("allows anonymous hits to /invite/* without redirect", () => {
     expect(
       evaluateAccess({ pathname: "/invite/some-token", role: null }),
-    ).toEqual({ action: "allow" });
-  });
-});
-
-describe("evaluateAccess — admin role", () => {
-  it("allows all three trees", () => {
-    expect(evaluateAccess({ pathname: "/driver", role: "admin" })).toEqual({
-      action: "allow",
-    });
-    expect(evaluateAccess({ pathname: "/dispatcher", role: "admin" })).toEqual({
-      action: "allow",
-    });
-    expect(evaluateAccess({ pathname: "/admin", role: "admin" })).toEqual({
-      action: "allow",
-    });
-    expect(
-      evaluateAccess({ pathname: "/admin/users", role: "admin" }),
     ).toEqual({ action: "allow" });
   });
 });

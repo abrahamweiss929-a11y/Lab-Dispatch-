@@ -7,9 +7,15 @@ interface DispatcherLayoutProps {
 }
 
 /**
- * Two-column chrome for every /dispatcher/* page. Server component; the
- * highlight-active-link logic lives in the client-only
- * `DispatcherNavLink` child so this wrapper can stay server-side.
+ * Two-column chrome for every /dispatcher/* page. As of the 2026-04-27
+ * unification, /admin/* and /dispatcher/* are URL aliases for the same
+ * office surface — the sidebar shows the full unified nav and any
+ * back-office user (role 'office', plus legacy admin/dispatcher) can
+ * reach every link.
+ *
+ * Server component; the highlight-active-link logic lives in the
+ * client-only `DispatcherNavLink` child so this wrapper can stay
+ * server-side.
  */
 export function DispatcherLayout({ title, children }: DispatcherLayoutProps) {
   return (
@@ -20,7 +26,7 @@ export function DispatcherLayout({ title, children }: DispatcherLayoutProps) {
             <span className="brand-mark brand-mark-small" aria-hidden="true" />
             <div>
               <p className="brand-title">Lab Dispatch</p>
-              <p className="brand-subtitle">Dispatcher</p>
+              <p className="brand-subtitle">Office</p>
             </div>
           </div>
         </div>
@@ -34,6 +40,11 @@ export function DispatcherLayout({ title, children }: DispatcherLayoutProps) {
           <DispatcherNavLink href="/dispatcher/messages">
             Messages
           </DispatcherNavLink>
+          <DispatcherNavLink href="/admin/drivers">Drivers</DispatcherNavLink>
+          <DispatcherNavLink href="/admin/doctors">Doctors</DispatcherNavLink>
+          <DispatcherNavLink href="/admin/offices">Offices</DispatcherNavLink>
+          <DispatcherNavLink href="/admin/payroll">Payroll</DispatcherNavLink>
+          <DispatcherNavLink href="/admin/users">Users</DispatcherNavLink>
         </nav>
         <div className="hidden p-4 lg:block">
           <div className="app-sidebar-panel p-3">
@@ -57,7 +68,7 @@ export function DispatcherLayout({ title, children }: DispatcherLayoutProps) {
       <main className="app-main px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         {title ? (
           <header className="mb-6">
-            <p className="page-kicker">Dispatcher workspace</p>
+            <p className="page-kicker">Office workspace</p>
             <h1 className="page-title mt-2">{title}</h1>
           </header>
         ) : null}

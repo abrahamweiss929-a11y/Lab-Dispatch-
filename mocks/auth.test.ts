@@ -20,18 +20,23 @@ describe("authMock", () => {
     expect(await authMock.getCurrentUser()).toBeNull();
   });
 
-  it("signs in for each seeded account", async () => {
+  it("signs in for each seeded back-office account (post-unification → office)", async () => {
+    // After the 2026-04-27 unification, both dispatcher@test and
+    // admin@test resolve to role 'office' — the legacy emails are kept
+    // for muscle memory but they grant the unified back-office role.
     const dispatcher = await authMock.signIn({
       email: "dispatcher@test",
       password: "test1234",
     });
-    expect(dispatcher.role).toBe("dispatcher");
+    expect(dispatcher.role).toBe("office");
+    expect(dispatcher.userId).toBe("user-dispatcher");
 
     const admin = await authMock.signIn({
       email: "admin@test",
       password: "test1234",
     });
-    expect(admin.role).toBe("admin");
+    expect(admin.role).toBe("office");
+    expect(admin.userId).toBe("user-admin");
   });
 
   it("rejects wrong password", async () => {

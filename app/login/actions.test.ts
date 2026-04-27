@@ -145,13 +145,14 @@ describe("signInAction — mock mode (USE_MOCKS unset)", () => {
   });
 
   it("signs in via getServices().auth and sets the ld_session cookie", async () => {
+    // Post-unification: every back-office role lands at /dispatcher.
     mockAuthSignIn.mockResolvedValue({ userId: "admin-1", role: "admin" });
     await expect(
       signInAction(
         { error: null },
         fd({ email: "admin@test", password: "test1234", next: "" }),
       ),
-    ).rejects.toThrow(/REDIRECT:\/admin/);
+    ).rejects.toThrow(/REDIRECT:\/dispatcher/);
     expect(setSessionMock).toHaveBeenCalledWith("admin-1", "admin");
     expect(signInWithPasswordMock).not.toHaveBeenCalled();
   });
@@ -204,6 +205,7 @@ describe("signInAction — real mode (USE_MOCKS=false)", () => {
   });
 
   it("signs in, reads role, sets ld_role, redirects to landing", async () => {
+    // Post-unification: every back-office role lands at /dispatcher.
     signInWithPasswordMock.mockResolvedValue({
       data: { user: { id: "uuid-1" } },
       error: null,
@@ -215,7 +217,7 @@ describe("signInAction — real mode (USE_MOCKS=false)", () => {
         { error: null },
         fd({ email: "admin@test", password: "test1234", next: "" }),
       ),
-    ).rejects.toThrow(/REDIRECT:\/admin/);
+    ).rejects.toThrow(/REDIRECT:\/dispatcher/);
 
     expect(signInWithPasswordMock).toHaveBeenCalledTimes(1);
     expect(setSessionMock).toHaveBeenCalledWith("uuid-1", "admin");

@@ -7,9 +7,15 @@ interface AdminLayoutProps {
 }
 
 /**
- * Two-column chrome for every /admin/* page. Server component; the
- * highlight-active-link logic lives in the client-only `AdminNavLink`
- * child so this wrapper can stay server-side.
+ * Two-column chrome for every /admin/* page. As of the 2026-04-27
+ * unification, /admin/* and /dispatcher/* are URL aliases for the
+ * same office surface — the sidebar shows the full unified nav and
+ * any back-office user (role 'office', plus legacy admin/dispatcher)
+ * can reach every link.
+ *
+ * Server component; the highlight-active-link logic lives in the
+ * client-only `AdminNavLink` child so this wrapper can stay
+ * server-side.
  */
 export function AdminLayout({ title, children }: AdminLayoutProps) {
   return (
@@ -20,25 +26,29 @@ export function AdminLayout({ title, children }: AdminLayoutProps) {
             <span className="brand-mark brand-mark-small" aria-hidden="true" />
             <div>
               <p className="brand-title">Lab Dispatch</p>
-              <p className="brand-subtitle">Admin</p>
+              <p className="brand-subtitle">Office</p>
             </div>
           </div>
         </div>
         <nav className="flex flex-wrap gap-2 px-3 pb-3 lg:flex-1 lg:flex-nowrap lg:flex-col lg:px-4">
-          <AdminNavLink href="/admin">Dashboard</AdminNavLink>
+          <AdminNavLink href="/dispatcher">Dashboard</AdminNavLink>
+          <AdminNavLink href="/dispatcher/requests">Requests</AdminNavLink>
+          <AdminNavLink href="/dispatcher/routes">Routes</AdminNavLink>
+          <AdminNavLink href="/dispatcher/map">Map</AdminNavLink>
+          <AdminNavLink href="/dispatcher/messages">Messages</AdminNavLink>
           <AdminNavLink href="/admin/drivers">Drivers</AdminNavLink>
           <AdminNavLink href="/admin/doctors">Doctors</AdminNavLink>
           <AdminNavLink href="/admin/offices">Offices</AdminNavLink>
-          <AdminNavLink href="/admin/users">Users</AdminNavLink>
           <AdminNavLink href="/admin/payroll">Payroll</AdminNavLink>
+          <AdminNavLink href="/admin/users">Users</AdminNavLink>
         </nav>
         <div className="hidden p-4 lg:block">
           <div className="app-sidebar-panel p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/45">
-              Control
+              Office
             </p>
             <p className="mt-1 text-sm font-semibold text-white">
-              Teams, offices, access
+              Pickups, drivers, access
             </p>
           </div>
         </div>
@@ -54,7 +64,7 @@ export function AdminLayout({ title, children }: AdminLayoutProps) {
       <main className="app-main px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         {title ? (
           <header className="mb-6">
-            <p className="page-kicker">Admin workspace</p>
+            <p className="page-kicker">Office workspace</p>
             <h1 className="page-title mt-2">{title}</h1>
           </header>
         ) : null}

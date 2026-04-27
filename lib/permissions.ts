@@ -1,3 +1,4 @@
+import { isOfficeRole } from "@/lib/auth-rules";
 import { todayIso } from "@/lib/dates";
 import type { UserRole } from "@/lib/types";
 
@@ -42,11 +43,7 @@ export interface EditRouteContext {
  *     so lexicographic compare matches chronological compare.
  */
 export function canDispatcherEditRoute(ctx: EditRouteContext): boolean {
-  if (
-    ctx.role !== "dispatcher" &&
-    ctx.role !== "admin" &&
-    ctx.role !== "office"
-  ) {
+  if (!isOfficeRole(ctx.role)) {
     return false;
   }
   const today = ctx.today ?? todayIso();

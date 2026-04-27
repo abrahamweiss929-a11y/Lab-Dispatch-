@@ -115,7 +115,9 @@ describe("admin/users server actions — createInviteAction", () => {
     const sent = getSentEmails();
     expect(sent).toHaveLength(1);
     expect(sent[0]?.to).toBe("newhire@example.com");
-    expect(sent[0]?.subject).toBe("You've been invited to Lab Dispatch");
+    expect(sent[0]?.subject).toBe(
+      "You've been invited to Lab Dispatch as office staff",
+    );
     expect(sent[0]?.textBody).toContain(
       `https://labdispatch.app/invite/${result.invite.token}`,
     );
