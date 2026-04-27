@@ -765,7 +765,7 @@ describe("dispatcher/routes server actions", () => {
           }),
         ),
       );
-      const { route, stops } = await seedFourGeocodedStops();
+      const { route } = await seedFourGeocodedStops();
       const before = (await storageMock.listStops(route.id)).map((s) => s.id);
       const result = await optimizeRouteAction(route.id);
       expect(result.status).toBe("already_optimal");
