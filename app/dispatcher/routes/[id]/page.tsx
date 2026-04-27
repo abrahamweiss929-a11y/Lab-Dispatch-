@@ -4,6 +4,7 @@ import { DispatcherLayout } from "@/components/DispatcherLayout";
 import { MapView, type MapPin } from "@/components/Map";
 import { getServices } from "@/interfaces";
 import { formatDateIsoToShort, todayIso } from "@/lib/dates";
+import { googleMapsRouteUrlFromAddresses } from "@/lib/google-maps-link";
 import { requireDispatcherSession } from "@/lib/require-dispatcher";
 import { AddStopForm } from "./_components/AddStopForm";
 import { OptimizeOrderButton } from "./_components/OptimizeOrderButton";
@@ -78,6 +79,20 @@ export default async function RouteDetailPage({
     })
     .filter((p): p is MapPin => p !== null);
 
+  // Preview-in-Google-Maps URL covers EVERY stop (unlike driver/route which
+  // filters out picked-up stops) — dispatcher uses this to sanity-check the
+  // route order and total time before assigning.
+  const allAddresses = stops
+    .map((stop) => {
+      const req = requestById.get(stop.pickupRequestId);
+      const office = req?.officeId ? officeById.get(req.officeId) : undefined;
+      if (!office) return null;
+      const a = office.address;
+      return `${a.street}, ${a.city}, ${a.state} ${a.zip}`;
+    })
+    .filter((s): s is string => s !== null);
+  const previewUrl = googleMapsRouteUrlFromAddresses(allAddresses);
+
   return (
     <DispatcherLayout title={`Route — ${driverName}`}>
       <div className="app-card mb-6 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -112,6 +127,17 @@ export default async function RouteDetailPage({
         <div className="mb-6">
           <MapView pins={mapPins} showRoute height="400px" />
         </div>
+      ) : null}
+
+      {previewUrl ? (
+        <a
+          href={previewUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn btn-secondary mb-6 inline-block"
+        >
+          Preview in Google Maps →
+        </a>
       ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

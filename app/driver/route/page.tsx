@@ -5,7 +5,10 @@ import { GpsSampler } from "@/components/GpsSampler";
 import { MapView, type MapPin } from "@/components/Map";
 import { getServices } from "@/interfaces";
 import { formatDateIsoToShort } from "@/lib/dates";
-import { googleMapsRouteUrl } from "@/lib/google-maps-link";
+import {
+  googleMapsRouteUrl,
+  googleMapsRouteUrlFromAddresses,
+} from "@/lib/google-maps-link";
 import { requireDriverOrAdminSession } from "@/lib/require-driver";
 import {
   buildRouteSummary,
@@ -157,6 +160,18 @@ export default async function DriverRoutePage({
       ? googleMapsRouteUrl(remainingWithCoords)
       : null;
 
+  // Address-based "Open full route in Google Maps" handoff. Uses the
+  // device's location as origin (forces "My Location") and the office
+  // street addresses for each remaining stop. Capped at Google's
+  // 9-waypoint limit by the helper.
+  const remainingAddresses = remainingStopViews
+    .map((v) => (v.address ? formatAddress(v.address) : null))
+    .filter((a): a is string => a !== null);
+  const fullRouteAddressUrl =
+    remainingAddresses.length > 0
+      ? googleMapsRouteUrlFromAddresses(remainingAddresses)
+      : null;
+
   return (
     <DriverLayout title="Today's route" driverName={driver.fullName}>
       <div className="mb-4 flex items-center justify-between">
@@ -171,6 +186,17 @@ export default async function DriverRoutePage({
           <p className="uppercase tracking-wide">{route.status}</p>
         </div>
       </div>
+
+      {fullRouteAddressUrl ? (
+        <a
+          href={fullRouteAddressUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn btn-primary mb-4 block w-full text-center"
+        >
+          Open full route in Google Maps →
+        </a>
+      ) : null}
 
       {route.status === "pending" ? (
         <p className="empty-state text-sm">
