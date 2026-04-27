@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DispatcherLayout } from "@/components/DispatcherLayout";
+import { MapView, type MapPin } from "@/components/Map";
 import { getServices } from "@/interfaces";
 import { formatShortDateTime } from "@/lib/dates";
 import { requireDispatcherSession } from "@/lib/require-dispatcher";
@@ -18,26 +19,23 @@ export default async function DispatcherMapPage() {
     (d) => d.active && !reportingDriverIds.has(d.profileId),
   );
 
+  const mapPins: MapPin[] = locations.map((loc) => {
+    const driver = driverById.get(loc.driverId);
+    const name = driver?.fullName ?? "Unknown driver";
+    return {
+      id: loc.id,
+      lat: loc.lat,
+      lng: loc.lng,
+      color: "#16a34a",
+      popup: `${name}\nLast ping ${formatShortDateTime(loc.recordedAt)}`,
+    };
+  });
+
   return (
     <DispatcherLayout title="Driver map">
-      <section className="map-panel mb-6">
-        <span className="map-pin map-pin-one" aria-hidden="true" />
-        <span className="map-pin map-pin-two" aria-hidden="true" />
-        <span className="map-pin map-pin-three" aria-hidden="true" />
-        <div className="relative z-10 max-w-md p-5">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[var(--brand-700)]">
-            Live location snapshot
-          </p>
-          <h2 className="mt-2 text-2xl font-black text-[var(--brand-950)]">
-            Driver pings from the last 15 minutes.
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-            This becomes a real Mapbox view when{" "}
-            <code>NEXT_PUBLIC_MAPBOX_TOKEN</code> is wired. For now, the table
-            below keeps the same operational data visible.
-          </p>
-        </div>
-      </section>
+      <div className="mb-6">
+        <MapView pins={mapPins} height="420px" autoRefreshMs={30_000} />
+      </div>
 
       {locations.length === 0 ? (
         <p className="empty-state">
