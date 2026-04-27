@@ -2,9 +2,13 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { DriverLayout } from "@/components/DriverLayout";
 import { GpsSampler } from "@/components/GpsSampler";
+import { MapView, type MapPin } from "@/components/Map";
 import { getServices } from "@/interfaces";
 import { formatDateIsoToShort } from "@/lib/dates";
-import { googleMapsRouteUrl } from "@/lib/google-maps-link";
+import {
+  googleMapsRouteUrl,
+  googleMapsRouteUrlFromAddresses,
+} from "@/lib/google-maps-link";
 import { requireDriverOrAdminSession } from "@/lib/require-driver";
 import {
   buildRouteSummary,
@@ -21,6 +25,16 @@ function stopStatus(stop: Stop): StopCardStatus {
   if (stop.pickedUpAt) return "picked_up";
   if (stop.arrivedAt) return "arrived";
   return "pending";
+}
+
+const STATUS_COLORS: Record<StopCardStatus, string> = {
+  picked_up: "#16a34a",
+  arrived: "#eab308",
+  pending: "#2563eb",
+};
+
+function formatAddress(addr: OfficeAddress): string {
+  return `${addr.street}, ${addr.city}, ${addr.state} ${addr.zip}`;
 }
 
 interface StopView {
@@ -79,6 +93,22 @@ export default async function DriverRoutePage({
     (v) => !v.stop.pickedUpAt,
   );
 
+  const mapPins: MapPin[] = stopViews
+    .filter((v) => v.office?.lat !== undefined && v.office?.lng !== undefined)
+    .map((v) => {
+      const status = stopStatus(v.stop);
+      const popupParts = [v.officeName];
+      if (v.address) popupParts.push(formatAddress(v.address));
+      return {
+        id: v.stop.id,
+        lat: v.office!.lat as number,
+        lng: v.office!.lng as number,
+        label: String(v.stop.position),
+        color: STATUS_COLORS[status],
+        popup: popupParts.join("\n"),
+      };
+    });
+
   const canCheckIn =
     session.role === "driver" && route.status === "active";
   const allPickedUp =
@@ -130,6 +160,18 @@ export default async function DriverRoutePage({
       ? googleMapsRouteUrl(remainingWithCoords)
       : null;
 
+  // Address-based "Open full route in Google Maps" handoff. Uses the
+  // device's location as origin (forces "My Location") and the office
+  // street addresses for each remaining stop. Capped at Google's
+  // 9-waypoint limit by the helper.
+  const remainingAddresses = remainingStopViews
+    .map((v) => (v.address ? formatAddress(v.address) : null))
+    .filter((a): a is string => a !== null);
+  const fullRouteAddressUrl =
+    remainingAddresses.length > 0
+      ? googleMapsRouteUrlFromAddresses(remainingAddresses)
+      : null;
+
   return (
     <DriverLayout title="Today's route" driverName={driver.fullName}>
       <div className="mb-4 flex items-center justify-between">
@@ -144,6 +186,17 @@ export default async function DriverRoutePage({
           <p className="uppercase tracking-wide">{route.status}</p>
         </div>
       </div>
+
+      {fullRouteAddressUrl ? (
+        <a
+          href={fullRouteAddressUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn btn-primary mb-4 block w-full text-center"
+        >
+          Open full route in Google Maps →
+        </a>
+      ) : null}
 
       {route.status === "pending" ? (
         <p className="empty-state text-sm">
@@ -163,6 +216,12 @@ export default async function DriverRoutePage({
               fromGoogle={summary.fromGoogle}
               fullRouteUrl={fullRouteUrl}
             />
+          ) : null}
+
+          {mapPins.length > 0 ? (
+            <div className="mb-4">
+              <MapView pins={mapPins} showRoute height="360px" />
+            </div>
           ) : null}
 
           {stopViews.length === 0 ? (

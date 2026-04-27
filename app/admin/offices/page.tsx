@@ -1,15 +1,33 @@
 import Link from "next/link";
 import { AdminLayout } from "@/components/AdminLayout";
+import type { MapPin } from "@/components/Map";
 import { getServices } from "@/interfaces";
 import { requireAdminSession } from "@/lib/require-admin";
 import { deactivateOfficeAction } from "./actions";
+import { OfficesMap } from "./_components/OfficesMap";
 
 export default async function OfficesListPage() {
   await requireAdminSession();
   const offices = await getServices().storage.listOffices();
 
+  const mapPins: MapPin[] = offices
+    .filter((o) => o.lat !== undefined && o.lng !== undefined)
+    .map((o) => ({
+      id: o.id,
+      lat: o.lat as number,
+      lng: o.lng as number,
+      color: o.active ? "#2563eb" : "#9ca3af",
+      popup: `${o.name}\n${o.address.street}, ${o.address.city}, ${o.address.state} ${o.address.zip}`,
+    }));
+
   return (
     <AdminLayout title="Offices">
+      {mapPins.length > 0 ? (
+        <div className="mb-6">
+          <OfficesMap pins={mapPins} height="360px" />
+        </div>
+      ) : null}
+
       <div className="toolbar">
         <p className="page-subtitle">
           {offices.length} {offices.length === 1 ? "office" : "offices"} total

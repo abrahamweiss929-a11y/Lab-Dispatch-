@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DispatcherLayout } from "@/components/DispatcherLayout";
+import { MapView, type MapPin } from "@/components/Map";
 import { getServices } from "@/interfaces";
 import { formatDateIsoToShort, todayIso } from "@/lib/dates";
+import { googleMapsRouteUrlFromAddresses } from "@/lib/google-maps-link";
 import { requireDispatcherSession } from "@/lib/require-dispatcher";
 import { AddStopForm } from "./_components/AddStopForm";
 import { OptimizeOrderButton } from "./_components/OptimizeOrderButton";
@@ -14,6 +16,12 @@ function routeStatusBadgeClass(status: string): string {
   if (status === "active") return "badge badge-info";
   return "badge badge-warning";
 }
+
+const STOP_COLORS = {
+  picked_up: "#16a34a",
+  arrived: "#eab308",
+  pending: "#2563eb",
+} as const;
 
 export default async function RouteDetailPage({
   params,
@@ -47,6 +55,44 @@ export default async function RouteDetailPage({
     .filter((r) => r.status === "pending")
     .filter((r) => r.createdAt.startsWith(today));
 
+  const mapPins: MapPin[] = stops
+    .map((stop): MapPin | null => {
+      const req = requestById.get(stop.pickupRequestId);
+      const office = req?.officeId ? officeById.get(req.officeId) : undefined;
+      if (!office || office.lat === undefined || office.lng === undefined) {
+        return null;
+      }
+      const status: keyof typeof STOP_COLORS = stop.pickedUpAt
+        ? "picked_up"
+        : stop.arrivedAt
+          ? "arrived"
+          : "pending";
+      const addr = office.address;
+      return {
+        id: stop.id,
+        lat: office.lat,
+        lng: office.lng,
+        label: String(stop.position),
+        color: STOP_COLORS[status],
+        popup: `${office.name}\n${addr.street}, ${addr.city}, ${addr.state} ${addr.zip}`,
+      };
+    })
+    .filter((p): p is MapPin => p !== null);
+
+  // Preview-in-Google-Maps URL covers EVERY stop (unlike driver/route which
+  // filters out picked-up stops) — dispatcher uses this to sanity-check the
+  // route order and total time before assigning.
+  const allAddresses = stops
+    .map((stop) => {
+      const req = requestById.get(stop.pickupRequestId);
+      const office = req?.officeId ? officeById.get(req.officeId) : undefined;
+      if (!office) return null;
+      const a = office.address;
+      return `${a.street}, ${a.city}, ${a.state} ${a.zip}`;
+    })
+    .filter((s): s is string => s !== null);
+  const previewUrl = googleMapsRouteUrlFromAddresses(allAddresses);
+
   return (
     <DispatcherLayout title={`Route — ${driverName}`}>
       <div className="app-card mb-6 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -76,6 +122,23 @@ export default async function RouteDetailPage({
         </div>
         <RouteStatusControls routeId={route.id} status={route.status} />
       </div>
+
+      {mapPins.length > 0 ? (
+        <div className="mb-6">
+          <MapView pins={mapPins} showRoute height="400px" />
+        </div>
+      ) : null}
+
+      {previewUrl ? (
+        <a
+          href={previewUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn btn-secondary mb-6 inline-block"
+        >
+          Preview in Google Maps →
+        </a>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <section className="lg:col-span-2">

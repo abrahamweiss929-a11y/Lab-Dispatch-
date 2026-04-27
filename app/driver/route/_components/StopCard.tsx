@@ -3,8 +3,12 @@
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import type { OfficeAddress, PickupUrgency } from "@/lib/types";
-import { googleMapsSearchUrl } from "@/lib/office-links";
+import { googleMapsSingleStopUrl } from "@/lib/google-maps-link";
 import { arriveAtStopAction, pickupStopAction } from "../actions";
+
+function formatAddressLine(addr: OfficeAddress): string {
+  return `${addr.street}, ${addr.city}, ${addr.state} ${addr.zip}`;
+}
 
 export type StopCardStatus = "pending" | "arrived" | "picked_up";
 
@@ -122,7 +126,7 @@ export function StopCard({
 
       {address ? (
         <a
-          href={googleMapsSearchUrl(address)}
+          href={googleMapsSingleStopUrl(formatAddressLine(address))}
           target="_blank"
           rel="noopener noreferrer"
           className="btn btn-secondary mt-3 min-h-10"
