@@ -3,7 +3,7 @@
 import { getServices } from "@/interfaces";
 import { buildPickupConfirmation } from "@/lib/email-templates";
 import { estimateEtaText } from "@/lib/eta";
-import { parseSlugToken } from "@/lib/parse-slug-token";
+import { isValidSlugTokenSegment } from "@/lib/parse-slug-token";
 import { pickupFormBucket } from "@/lib/rate-limit";
 import type { PickupUrgency } from "@/lib/types";
 import type { PickupFormState } from "./form-state";
@@ -45,7 +45,7 @@ export async function submitPickupRequestAction(
     };
   }
 
-  if (parseSlugToken(slugToken) === null) {
+  if (!isValidSlugTokenSegment(slugToken)) {
     return {
       status: "error",
       error: "This pickup link is no longer valid.",
@@ -81,20 +81,12 @@ export async function submitPickupRequestAction(
     return { status: "error", error: null, fieldErrors };
   }
 
-  const parsed = parseSlugToken(slugToken);
-  // parsed was non-null above; narrow for TS.
-  if (parsed === null) {
-    return {
-      status: "error",
-      error: "This pickup link is no longer valid.",
-      fieldErrors: {},
-    };
-  }
-
   const services = getServices();
-  const office = await services.storage.findOfficeBySlugToken(
-    parsed.slug,
-    parsed.token,
+  // Composite-match lookup. The legacy `findOfficeBySlugToken` parser
+  // split on `-` which broke for hyphenated slugs/tokens (the bug this
+  // fix is for).
+  const office = await services.storage.findOfficeByPickupUrlSegment(
+    slugToken,
   );
   if (office === null) {
     return {

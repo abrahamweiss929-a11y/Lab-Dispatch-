@@ -204,6 +204,97 @@ describe("storageMock", () => {
     });
   });
 
+  describe("findOfficeByPickupUrlSegment — composite-match lookup", () => {
+    it("matches on the simple {slug}-{token} composite", async () => {
+      const office = await storageMock.createOffice({
+        name: "Acme Clinic",
+        slug: "acme",
+        pickupUrlToken: "a7b2c3d4e5f6",
+        address: ADDRESS,
+        active: true,
+      });
+      const found = await storageMock.findOfficeByPickupUrlSegment(
+        "acme-a7b2c3d4e5f6",
+      );
+      expect(found?.id).toBe(office.id);
+    });
+
+    it("matches when the slug contains hyphens", async () => {
+      const office = await storageMock.createOffice({
+        name: "Foo Bar Clinic",
+        slug: "foo-bar-clinic",
+        pickupUrlToken: "abcdef123456",
+        address: ADDRESS,
+        active: true,
+      });
+      const found = await storageMock.findOfficeByPickupUrlSegment(
+        "foo-bar-clinic-abcdef123456",
+      );
+      expect(found?.id).toBe(office.id);
+    });
+
+    it("matches when BOTH slug AND token contain hyphens (the bug case)", async () => {
+      // Production reproduction: 'brick-internal' + 'demo-brick-03'.
+      // The legacy parser split on the LAST hyphen (slug='brick-internal-demo-brick',
+      // token='03'), missed the row, and returned "Unknown pickup link".
+      // Composite match correctly resolves this.
+      const office = await storageMock.createOffice({
+        name: "Brick Internal Medicine",
+        slug: "brick-internal",
+        pickupUrlToken: "demo-brick-03",
+        address: ADDRESS,
+        active: true,
+      });
+      const found = await storageMock.findOfficeByPickupUrlSegment(
+        "brick-internal-demo-brick-03",
+      );
+      expect(found?.id).toBe(office.id);
+    });
+
+    it("returns null for an unknown segment", async () => {
+      await storageMock.createOffice({
+        name: "Acme",
+        slug: "acme",
+        pickupUrlToken: "a7b2c3d4e5f6",
+        address: ADDRESS,
+        active: true,
+      });
+      expect(
+        await storageMock.findOfficeByPickupUrlSegment("unknown-zz000000"),
+      ).toBeNull();
+    });
+
+    it("returns null for an inactive office (even on exact composite match)", async () => {
+      await storageMock.createOffice({
+        name: "Retired Clinic",
+        slug: "retired",
+        pickupUrlToken: "demo-old-99",
+        address: ADDRESS,
+        active: false,
+      });
+      expect(
+        await storageMock.findOfficeByPickupUrlSegment("retired-demo-old-99"),
+      ).toBeNull();
+    });
+
+    it("does NOT match a near-prefix (composite must equal exactly)", async () => {
+      // slug='acme-foo' and token='bar' would compose to 'acme-foo-bar'.
+      // Looking up 'acme-foo-bar-extra' must NOT return this row.
+      await storageMock.createOffice({
+        name: "Acme Foo",
+        slug: "acme-foo",
+        pickupUrlToken: "bar-token-1",
+        address: ADDRESS,
+        active: true,
+      });
+      expect(
+        await storageMock.findOfficeByPickupUrlSegment(
+          "acme-foo-bar-token-1-extra",
+        ),
+      ).toBeNull();
+    });
+  });
+
   it("getDriver / getDoctor / getOffice return null when the id is missing", async () => {
     expect(await storageMock.getDriver("nope")).toBeNull();
     expect(await storageMock.getDoctor("nope")).toBeNull();
