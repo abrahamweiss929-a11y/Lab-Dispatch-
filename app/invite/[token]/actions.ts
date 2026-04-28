@@ -22,7 +22,7 @@ export async function acceptInviteAction(
   _prev: AcceptInviteFormState,
 ): Promise<AcceptInviteFormState> {
   const acceptedByProfileId = makeRandomId();
-  const result = acceptInvite(token, acceptedByProfileId);
+  const result = await acceptInvite(token, acceptedByProfileId);
   if (result.outcome.status !== "ok") {
     if (result.outcome.status === "not_found") {
       return { status: "error", reason: "not_found" };
