@@ -1,29 +1,46 @@
 /**
- * Pure parser for the `/pickup/{slug}-{token}` URL segment.
+ * Format validator for the `/pickup/{segment}` URL segment.
  *
- * The slug half may itself contain hyphens (slugify produces kebab-case),
- * so we split on the LAST `-` rather than the first.
+ * Historically this module split the segment into `{slug}-{token}` and
+ * the storage layer looked them up separately. That broke when slugs
+ * AND tokens both contain hyphens (e.g. `brick-internal-demo-brick-03`)
+ * — there's no way to know how many hyphens belong to the slug vs the
+ * token without consulting the database.
  *
- * The token shape — `/^[a-z0-9]{12}$/` — mirrors what `makeRandomId(12)`
- * emits when offices are created in the admin form. Any shape failure
- * returns `null` so callers can respond with a 404.
+ * Current shape: just verify the URL segment is plausibly an office
+ * pickup URL — non-empty, lowercase, contains at least one hyphen,
+ * only `[a-z0-9-]` characters. The actual `slug + '-' + pickupUrlToken`
+ * lookup happens in `storage.findOfficeByPickupUrlSegment(segment)`,
+ * which iterates offices and finds the row whose composite matches.
  */
 
+const SEGMENT_RE = /^[a-z0-9]+(?:-[a-z0-9]+)+$/;
+
+export function isValidSlugTokenSegment(segment: string): boolean {
+  if (segment.length === 0) return false;
+  return SEGMENT_RE.test(segment);
+}
+
+/**
+ * Back-compat alias. Returns the validated segment in `{slug, token}`
+ * shape using the LEGACY split (last hyphen) for any caller that still
+ * needs the parsed pieces. Prefer `isValidSlugTokenSegment` +
+ * `findOfficeByPickupUrlSegment` for new code.
+ *
+ * @deprecated Use `isValidSlugTokenSegment` and look up via
+ *   `findOfficeByPickupUrlSegment` instead. The split is wrong when
+ *   tokens themselves contain hyphens.
+ */
 export interface ParsedSlugToken {
   slug: string;
   token: string;
 }
 
-const TOKEN_RE = /^[a-z0-9]{12}$/;
-const SLUG_RE = /^[a-z0-9-]+$/;
-
-export function parseSlugToken(slugToken: string): ParsedSlugToken | null {
-  if (slugToken.length === 0) return null;
-  const lastDash = slugToken.lastIndexOf("-");
-  if (lastDash <= 0) return null;
-  const slug = slugToken.slice(0, lastDash);
-  const token = slugToken.slice(lastDash + 1);
-  if (!TOKEN_RE.test(token)) return null;
-  if (!SLUG_RE.test(slug)) return null;
-  return { slug, token };
+export function parseSlugToken(segment: string): ParsedSlugToken | null {
+  if (!isValidSlugTokenSegment(segment)) return null;
+  const lastDash = segment.lastIndexOf("-");
+  return {
+    slug: segment.slice(0, lastDash),
+    token: segment.slice(lastDash + 1),
+  };
 }

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getServices } from "@/interfaces";
-import { parseSlugToken } from "@/lib/parse-slug-token";
+import { isValidSlugTokenSegment } from "@/lib/parse-slug-token";
 import { PickupRequestForm } from "./_components/PickupRequestForm";
 
 interface PickupPageProps {
@@ -11,13 +11,15 @@ interface PickupPageProps {
 // `lib/auth-rules.ts`. Do not add a session check here; the rate limiter
 // in the server action is the only abuse guard.
 export default async function PickupPage({ params }: PickupPageProps) {
-  const parsed = parseSlugToken(params.slugToken);
-  if (parsed === null) {
+  if (!isValidSlugTokenSegment(params.slugToken)) {
     notFound();
   }
-  const office = await getServices().storage.findOfficeBySlugToken(
-    parsed.slug,
-    parsed.token,
+  // Composite-match lookup: avoids the broken split-on-hyphen path. Both
+  // slug and token may contain hyphens, so the only way to find the
+  // matching office is to compare `slug + '-' + pickupUrlToken` against
+  // the full URL segment.
+  const office = await getServices().storage.findOfficeByPickupUrlSegment(
+    params.slugToken,
   );
   if (office === null) {
     notFound();

@@ -64,7 +64,7 @@ describe("admin/users server actions — createInviteAction", () => {
     expect(result.acceptUrl).toBe(`/invite/${result.invite.token}`);
     expect(revalidatePathMock).toHaveBeenCalledWith("/admin/users");
 
-    const stored = listInvites();
+    const stored = await listInvites();
     expect(stored).toHaveLength(1);
     expect(stored[0]?.invitedByProfileId).toBe("admin-test");
   });
@@ -77,7 +77,7 @@ describe("admin/users server actions — createInviteAction", () => {
     expect(result.status).toBe("error");
     if (result.status !== "error") return;
     expect(result.fieldErrors.email).toBeTruthy();
-    expect(listInvites()).toHaveLength(0);
+    expect(await listInvites()).toHaveLength(0);
   });
 
   it("rejects an invalid role", async () => {
@@ -88,7 +88,7 @@ describe("admin/users server actions — createInviteAction", () => {
     expect(result.status).toBe("error");
     if (result.status !== "error") return;
     expect(result.fieldErrors.role).toBeTruthy();
-    expect(listInvites()).toHaveLength(0);
+    expect(await listInvites()).toHaveLength(0);
   });
 
   it("bails when not an admin", async () => {
@@ -101,7 +101,7 @@ describe("admin/users server actions — createInviteAction", () => {
         fd({ email: "user@example.com", role: "office" }),
       ),
     ).rejects.toThrow(/REDIRECT:\/login/);
-    expect(listInvites()).toHaveLength(0);
+    expect(await listInvites()).toHaveLength(0);
   });
 
   it("sends an invite email with the absolute /invite/{token} URL", async () => {
@@ -144,7 +144,7 @@ describe("admin/users server actions — createInviteAction", () => {
       );
       expect(result.status).toBe("ok");
       // Invite still persisted despite email failure
-      expect(listInvites()).toHaveLength(1);
+      expect(await listInvites()).toHaveLength(1);
     } finally {
       services.email.sendEmail = original;
     }
@@ -173,7 +173,7 @@ describe("admin/users server actions — revokeInviteAction", () => {
 
     await revokeInviteAction(created.invite.id);
 
-    const after = getInviteByToken(created.invite.token);
+    const after = await getInviteByToken(created.invite.token);
     expect(after?.status).toBe("revoked");
     expect(revalidatePathMock).toHaveBeenCalledWith("/admin/users");
   });

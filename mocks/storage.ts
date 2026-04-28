@@ -203,6 +203,23 @@ export const storageMock: StorageService = {
     return null;
   },
 
+  /**
+   * Composite match: returns the active office whose
+   * `slug + '-' + pickupUrlToken` equals the given URL segment.
+   * Full-scan; the offices table is small per tenant.
+   */
+  async findOfficeByPickupUrlSegment(
+    segment: string,
+  ): Promise<Office | null> {
+    for (const office of state.offices.values()) {
+      if (!office.active) continue;
+      if (`${office.slug}-${office.pickupUrlToken}` === segment) {
+        return office;
+      }
+    }
+    return null;
+  },
+
   async updateOffice(
     id: string,
     patch: Partial<Omit<Office, "id">>,

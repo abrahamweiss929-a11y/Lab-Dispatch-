@@ -34,7 +34,7 @@ export async function createInviteAction(
     return { status: "error", fieldErrors };
   }
 
-  const invite = createInviteRow({
+  const invite = await createInviteRow({
     email,
     role,
     invitedByProfileId: session.userId,
@@ -72,6 +72,6 @@ export async function createInviteAction(
 
 export async function revokeInviteAction(inviteId: string): Promise<void> {
   await requireAdminSession();
-  revokeInviteRow(inviteId);
+  await revokeInviteRow(inviteId);
   revalidatePath("/admin/users");
 }

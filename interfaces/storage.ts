@@ -137,6 +137,14 @@ export interface StorageService {
    */
   findOfficeBySlugToken(slug: string, token: string): Promise<Office | null>;
   /**
+   * Returns the active office whose `slug + '-' + pickupUrlToken`
+   * composite equals the given URL segment. Use this instead of
+   * `findOfficeBySlugToken` for `/pickup/{segment}` lookups — the
+   * composite match is the only way to handle slugs and tokens that
+   * both contain hyphens. Inactive offices resolve to null.
+   */
+  findOfficeByPickupUrlSegment(segment: string): Promise<Office | null>;
+  /**
    * Shallow-merges `patch` into the existing office. `address` is treated
    * as a full replacement (not deep-merged) when present. Throws
    * `Error("office <id> not found")` when the id is missing.

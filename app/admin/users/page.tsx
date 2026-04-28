@@ -7,7 +7,7 @@ import { revokeInviteAction } from "./actions";
 
 export default async function AdminUsersPage() {
   await requireAdminSession();
-  const invites = listInvites();
+  const invites = await listInvites();
 
   return (
     <AdminLayout title="Users & invites">

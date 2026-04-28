@@ -1,60 +1,81 @@
 import { describe, it, expect } from "vitest";
-import { parseSlugToken } from "./parse-slug-token";
+import {
+  isValidSlugTokenSegment,
+  parseSlugToken,
+} from "./parse-slug-token";
 
-describe("parseSlugToken", () => {
-  it("parses a single-hyphen slug + 12-char token", () => {
+describe("isValidSlugTokenSegment — relaxed validator", () => {
+  it("accepts standard 12-char-token URLs", () => {
+    expect(isValidSlugTokenSegment("acme-a7b2c3d4e5f6")).toBe(true);
+  });
+
+  it("accepts hyphenated slugs", () => {
+    expect(isValidSlugTokenSegment("foo-bar-clinic-a1b2c3d4e5f6")).toBe(true);
+  });
+
+  it("accepts the production-style hyphenated slug + hyphenated token (the bug case)", () => {
+    // Bug repro: slug='brick-internal', token='demo-brick-03'.
+    // Composite URL = 'brick-internal-demo-brick-03' — the parser must
+    // accept this as a valid segment shape (the actual lookup happens
+    // via findOfficeByPickupUrlSegment).
+    expect(isValidSlugTokenSegment("brick-internal-demo-brick-03")).toBe(
+      true,
+    );
+  });
+
+  it("accepts seed-style tokens with hyphens (e.g. demo-pdq-01)", () => {
+    expect(isValidSlugTokenSegment("any-slug-demo-pdq-01")).toBe(true);
+  });
+
+  it("rejects empty input", () => {
+    expect(isValidSlugTokenSegment("")).toBe(false);
+  });
+
+  it("rejects input with no hyphen", () => {
+    expect(isValidSlugTokenSegment("singleword")).toBe(false);
+  });
+
+  it("rejects uppercase letters", () => {
+    expect(isValidSlugTokenSegment("ACME-token12")).toBe(false);
+  });
+
+  it("rejects underscores and other special characters", () => {
+    expect(isValidSlugTokenSegment("acme_clinic-token12")).toBe(false);
+    expect(isValidSlugTokenSegment("acme-token!")).toBe(false);
+  });
+
+  it("rejects leading/trailing hyphens (no empty segments)", () => {
+    expect(isValidSlugTokenSegment("-token-12")).toBe(false);
+    expect(isValidSlugTokenSegment("acme-token-")).toBe(false);
+  });
+
+  it("rejects double hyphens (creates empty segment)", () => {
+    expect(isValidSlugTokenSegment("acme--token12")).toBe(false);
+  });
+});
+
+describe("parseSlugToken — legacy split (deprecated; use isValidSlugTokenSegment)", () => {
+  it("returns slug + token using the LAST-hyphen split for valid segments", () => {
     expect(parseSlugToken("acme-a7b2c3d4e5f6")).toEqual({
       slug: "acme",
       token: "a7b2c3d4e5f6",
     });
   });
 
-  it("parses a multi-hyphen slug by splitting on the LAST hyphen", () => {
-    expect(parseSlugToken("foo-bar-clinic-a1b2c3d4e5f6")).toEqual({
-      slug: "foo-bar-clinic",
-      token: "a1b2c3d4e5f6",
-    });
-  });
-
-  it("accepts a numeric-only slug", () => {
-    expect(parseSlugToken("123-a1b2c3d4e5f6")).toEqual({
-      slug: "123",
-      token: "a1b2c3d4e5f6",
-    });
-  });
-
-  it("rejects uppercase in the token", () => {
-    expect(parseSlugToken("acme-A7B2C3D4E5F6")).toBeNull();
-  });
-
-  it("rejects a token that is too short", () => {
-    expect(parseSlugToken("acme-SHORT")).toBeNull();
-    expect(parseSlugToken("acme-a7b2c3d4e5f")).toBeNull();
-  });
-
-  it("rejects a token that is too long", () => {
-    expect(parseSlugToken("acme-a7b2c3d4e5f6x")).toBeNull();
-  });
-
-  it("rejects non-alphanumeric token characters", () => {
-    expect(parseSlugToken("acme-a7b2c3d4e5f_")).toBeNull();
-    expect(parseSlugToken("acme-a7b2c3d4e5f!")).toBeNull();
-  });
-
-  it("rejects input with no hyphen", () => {
-    expect(parseSlugToken("acme")).toBeNull();
-  });
-
-  it("rejects empty input", () => {
+  it("returns null for invalid segments", () => {
     expect(parseSlugToken("")).toBeNull();
+    expect(parseSlugToken("noseparator")).toBeNull();
   });
 
-  it("rejects a leading-dash input (empty slug)", () => {
-    expect(parseSlugToken("-a7b2c3d4e5f6")).toBeNull();
-  });
-
-  it("rejects a slug with non-allowed characters", () => {
-    expect(parseSlugToken("ACME-a7b2c3d4e5f6")).toBeNull();
-    expect(parseSlugToken("acme_clinic-a7b2c3d4e5f6")).toBeNull();
+  it("now accepts hyphenated tokens (legacy regex was too strict)", () => {
+    // Pre-fix: would have returned null because token didn't match
+    // /^[a-z0-9]{12}$/. Post-fix: returns the last-hyphen split, even
+    // though it's semantically wrong for this case — but callers should
+    // use `findOfficeByPickupUrlSegment` (which uses the FULL segment
+    // composite match) instead of trusting the split.
+    const parsed = parseSlugToken("brick-internal-demo-brick-03");
+    expect(parsed).not.toBeNull();
+    expect(parsed?.slug).toBe("brick-internal-demo-brick");
+    expect(parsed?.token).toBe("03");
   });
 });

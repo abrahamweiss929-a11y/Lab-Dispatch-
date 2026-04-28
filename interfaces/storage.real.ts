@@ -115,6 +115,30 @@ export function createRealStorageService(): StorageService {
     return data ? dbOfficeToOffice(data as DbOfficeRow) : null;
   }
 
+  /**
+   * Composite match for /pickup/{segment} URLs. We can't run
+   * `slug || '-' || pickup_url_token = $1` cleanly through PostgREST
+   * (it doesn't expose the `||` operator on filter columns), so we
+   * fetch active offices and filter in process. The offices table is
+   * tiny per tenant — full-scan is fine and avoids RPC complexity.
+   */
+  async function findOfficeByPickupUrlSegment(
+    segment: string,
+  ): Promise<Office | null> {
+    const { data, error } = await sb()
+      .from("offices")
+      .select("*")
+      .eq("active", true);
+    if (error) throw wrapSupabaseError(error, "findOfficeByPickupUrlSegment");
+    if (!data) return null;
+    for (const row of data as DbOfficeRow[]) {
+      if (`${row.slug}-${row.pickup_url_token}` === segment) {
+        return dbOfficeToOffice(row);
+      }
+    }
+    return null;
+  }
+
   async function createOffice(input: NewOffice): Promise<Office> {
     const { data, error } = await sb()
       .from("offices")
@@ -1058,6 +1082,7 @@ export function createRealStorageService(): StorageService {
     updatePickupRequestStatus,
     getOffice,
     findOfficeBySlugToken,
+    findOfficeByPickupUrlSegment,
     updateOffice,
     getDriver,
     updateDriver,

@@ -32,7 +32,7 @@ describe("invite accept action", () => {
   });
 
   it("happy path: accepts invite, sets session, redirects to landing", async () => {
-    const invite = createInvite({
+    const invite = await createInvite({
       email: "u@x.com",
       role: "office",
       invitedByProfileId: "admin-1",
@@ -45,13 +45,13 @@ describe("invite accept action", () => {
     expect(setSessionMock).toHaveBeenCalledTimes(1);
     expect(setSessionMock.mock.calls[0]?.[1]).toBe("office");
 
-    const after = getInviteByToken(invite.token);
+    const after = await getInviteByToken(invite.token);
     expect(after?.status).toBe("accepted");
     expect(after?.acceptedByProfileId).toBeTruthy();
   });
 
   it("driver invite redirects to /driver landing", async () => {
-    const invite = createInvite({
+    const invite = await createInvite({
       email: "d@x.com",
       role: "driver",
       invitedByProfileId: "admin-1",
@@ -75,12 +75,12 @@ describe("invite accept action", () => {
   });
 
   it("returns revoked error after the invite is revoked", async () => {
-    const invite = createInvite({
+    const invite = await createInvite({
       email: "u@x.com",
       role: "office",
       invitedByProfileId: "admin-1",
     });
-    revokeInvite(invite.id);
+    await revokeInvite(invite.id);
     const result = await acceptInviteAction(
       invite.token,
       INITIAL_ACCEPT_INVITE_STATE,
@@ -91,7 +91,7 @@ describe("invite accept action", () => {
   });
 
   it("sends a welcome email after accepting (office role -> /dispatcher landing url)", async () => {
-    const invite = createInvite({
+    const invite = await createInvite({
       email: "newhire@x.com",
       role: "office",
       invitedByProfileId: "admin-1",
@@ -111,7 +111,7 @@ describe("invite accept action", () => {
   });
 
   it("redirect succeeds even when welcome email fails (failure isolated)", async () => {
-    const invite = createInvite({
+    const invite = await createInvite({
       email: "newhire@x.com",
       role: "driver",
       invitedByProfileId: "admin-1",
@@ -130,11 +130,11 @@ describe("invite accept action", () => {
       services.email.sendEmail = original;
     }
     // Invite still marked accepted
-    expect(getInviteByToken(invite.token)?.status).toBe("accepted");
+    expect((await getInviteByToken(invite.token))?.status).toBe("accepted");
   });
 
   it("returns already_accepted on second use of the same token", async () => {
-    const invite = createInvite({
+    const invite = await createInvite({
       email: "u@x.com",
       role: "office",
       invitedByProfileId: "admin-1",

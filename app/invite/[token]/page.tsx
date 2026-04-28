@@ -12,8 +12,8 @@ const REASON_COPY: Record<string, string> = {
   already_accepted: "This invite has already been accepted.",
 };
 
-export default function InvitePage({ params }: InvitePageProps) {
-  const result = lookupInviteForAccept(params.token);
+export default async function InvitePage({ params }: InvitePageProps) {
+  const result = await lookupInviteForAccept(params.token);
 
   return (
     <main className="mx-auto max-w-md px-4 py-12">
