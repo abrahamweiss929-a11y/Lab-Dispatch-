@@ -88,6 +88,25 @@ describe("POST /api/sms/inbound", () => {
     });
   });
 
+  it("verbatim regression: pipeline returning smsAutoReplyBody='hello' produces <Message>hello</Message>", async () => {
+    // Direct regression for the 2026-04-29 'no SMS reply' production
+    // bug. If this test ever stops passing, the route → TwiML wiring
+    // has regressed.
+    handleInboundMessageMock.mockResolvedValueOnce({
+      status: "received",
+      requestId: "req-x",
+      messageId: "msg-x",
+      smsAutoReplyBody: "hello",
+    });
+    const res = await POST(
+      formRequest({ From: "+15550001111", Body: "test" }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/xml");
+    const body = await res.text();
+    expect(body).toContain("<Message>hello</Message>");
+  });
+
   it("happy without smsAutoReplyBody (e.g. no auto-reply policy): returns empty TwiML", async () => {
     handleInboundMessageMock.mockResolvedValueOnce({
       status: "received",
