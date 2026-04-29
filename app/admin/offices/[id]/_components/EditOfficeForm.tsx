@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useFormState } from "react-dom";
 import type { Office } from "@/lib/types";
 import { updateOfficeAction } from "../../actions";
@@ -11,6 +11,27 @@ interface EditOfficeFormProps {
   office: Office;
 }
 
+const PUBLIC_APP_URL_DEFAULT = "https://labdispatch.app";
+
+/**
+ * Returns an absolute pickup URL. Server-side / first paint uses
+ * `NEXT_PUBLIC_APP_URL` (or the production fallback); on the client
+ * after mount we trust `window.location.origin` so preview deploys
+ * surface their own origin in the Copy button.
+ */
+function useFullPickupUrl(path: string): string {
+  const envBase =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") ??
+    PUBLIC_APP_URL_DEFAULT;
+  const [base, setBase] = useState(envBase);
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location?.origin) {
+      setBase(window.location.origin);
+    }
+  }, []);
+  return `${base}${path}`;
+}
+
 export function EditOfficeForm({ office }: EditOfficeFormProps) {
   const boundAction = updateOfficeAction.bind(null, office.id);
   const [state, formAction] = useFormState(
@@ -18,7 +39,11 @@ export function EditOfficeForm({ office }: EditOfficeFormProps) {
     INITIAL_ADMIN_FORM_STATE,
   );
   const [copied, setCopied] = useState(false);
-  const pickupUrl = `/pickup/${office.slug}-${office.pickupUrlToken}`;
+  const pickupPath = `/pickup/${office.slug}-${office.pickupUrlToken}`;
+  // Full absolute URL: prefer the env-configured public app URL; fall
+  // back to window.location.origin (client-only) once mounted; on SSR
+  // the env value (or the production default) is what we render.
+  const pickupUrl = useFullPickupUrl(pickupPath);
 
   async function handleCopy() {
     try {
@@ -69,25 +94,31 @@ export function EditOfficeForm({ office }: EditOfficeFormProps) {
       </label>
 
       <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-soft)] p-3 text-sm">
-        <p className="font-medium">Pickup URL token</p>
-        <p className="mt-1 font-mono text-xs text-gray-700">
-          {office.pickupUrlToken}
+        <p className="font-medium">Pickup URL</p>
+        <p className="mt-1 text-xs text-gray-600">
+          Share this URL with the office. They can use it to submit
+          pickup requests — no login required.
         </p>
-        <p className="mt-2 text-xs text-gray-500">
-          Full pickup URL (share with this office):
-        </p>
-        <div className="mt-1 flex items-center gap-2">
-          <code className="flex-1 truncate rounded bg-white px-2 py-1 font-mono text-xs">
-            {pickupUrl}
-          </code>
+        <div className="mt-2 flex flex-wrap items-stretch gap-2">
+          <input
+            type="text"
+            readOnly
+            value={pickupUrl}
+            className="flex-1 min-w-0 rounded border border-gray-300 bg-white px-3 py-2 font-mono text-xs"
+            onFocus={(e) => e.currentTarget.select()}
+            aria-label="Full pickup URL (read-only)"
+          />
           <button
             type="button"
             onClick={handleCopy}
-            className="btn btn-secondary min-h-8 px-2 py-1 text-xs"
+            className="btn btn-secondary px-3 py-2 text-xs whitespace-nowrap"
           >
-            {copied ? "Copied" : "Copy"}
+            {copied ? "Copied!" : "Copy URL"}
           </button>
         </div>
+        <p className="mt-2 text-xs text-gray-500">
+          Token: <span className="font-mono">{office.pickupUrlToken}</span>
+        </p>
       </div>
 
       <fieldset className="space-y-2 rounded border border-gray-200 p-4">

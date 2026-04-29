@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AdminLayout } from "@/components/AdminLayout";
+import { LocalDateTime } from "@/components/LocalDateTime";
 import { getServices } from "@/interfaces";
-import { formatShortDateTime } from "@/lib/dates";
 import { requireAdminSession } from "@/lib/require-admin";
 import { deactivateDriverAction } from "./actions";
 
@@ -64,7 +64,7 @@ export default async function DriversListPage() {
                       </span>
                     </td>
                     <td className="px-4 py-2 text-xs text-gray-500">
-                      {formatShortDateTime(d.createdAt)}
+                      <LocalDateTime iso={d.createdAt} />
                     </td>
                     <td className="flex gap-2 px-4 py-2">
                       <Link

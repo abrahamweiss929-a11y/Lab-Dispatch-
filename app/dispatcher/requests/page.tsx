@@ -1,10 +1,19 @@
 import Link from "next/link";
 import { DispatcherLayout } from "@/components/DispatcherLayout";
+import { LocalDateTime } from "@/components/LocalDateTime";
 import { getServices } from "@/interfaces";
-import { formatShortDateTime, todayIso } from "@/lib/dates";
+import { todayIso } from "@/lib/dates";
 import { requireDispatcherSession } from "@/lib/require-dispatcher";
-import type { PickupRequest, Route } from "@/lib/types";
-import { AssignToRouteSelect } from "./_components/AssignToRouteSelect";
+import {
+  resolveSenderDisplay,
+  type SenderDisplay,
+} from "@/lib/sender-display";
+import type { Office, PickupRequest } from "@/lib/types";
+import { SenderCell } from "../_components/SenderCell";
+import {
+  AssignToDriverSelect,
+  type DriverOption,
+} from "./_components/AssignToDriverSelect";
 import { FlagForReviewButton } from "./_components/FlagForReviewButton";
 import { MarkResolvedButton } from "./_components/MarkResolvedButton";
 
@@ -35,9 +44,45 @@ function passesStatusFilter(r: PickupRequest, filter: FilterTab): boolean {
   return true;
 }
 
-function routeLabel(route: Route, driverName: string | undefined): string {
-  const name = driverName ?? "Unknown driver";
-  return `${name} · ${route.status}`;
+/**
+ * Build a SenderDisplay for a pickup request. Prefers the office FK
+ * (most accurate; works even when sourceIdentifier is empty/manual);
+ * falls back to resolving the raw sourceIdentifier against offices/
+ * doctors; ultimately to "unknown".
+ */
+function senderForRequest(
+  r: PickupRequest,
+  officeById: Map<string, Office>,
+  offices: readonly Office[],
+  doctors: readonly import("@/lib/types").Doctor[],
+): SenderDisplay {
+  if (r.officeId) {
+    const office = officeById.get(r.officeId);
+    if (office) {
+      // Look for a doctor whose contact matches the source identifier
+      // — gives us the doctor name when one is on file.
+      if (r.sourceIdentifier && r.sourceIdentifier.length > 0) {
+        const candidateDoctors = doctors.filter(
+          (d) => d.officeId === office.id,
+        );
+        const resolved = resolveSenderDisplay(
+          r.sourceIdentifier,
+          [office],
+          candidateDoctors,
+        );
+        if (resolved.kind === "match") return resolved;
+      }
+      return {
+        kind: "match",
+        officeName: office.name,
+        address: office.address,
+      };
+    }
+  }
+  if (r.sourceIdentifier && r.sourceIdentifier.length > 0) {
+    return resolveSenderDisplay(r.sourceIdentifier, offices, doctors);
+  }
+  return { kind: "unknown", raw: "(no sender on file)" };
 }
 
 function statusBadgeClass(status: PickupRequest["status"]): string {
@@ -63,21 +108,41 @@ export default async function DispatcherRequestsPage({
   const today = todayIso();
 
   const storage = getServices().storage;
-  const [allRequests, offices, routes, drivers] = await Promise.all([
+  const [allRequests, offices, routes, drivers, doctors] = await Promise.all([
     storage.listPickupRequests(),
     storage.listOffices(),
     storage.listRoutes({ date: today }),
     storage.listDrivers(),
+    storage.listDoctors(),
   ]);
 
   const officeById = new Map(offices.map((o) => [o.id, o] as const));
-  const driverNameById = new Map(
-    drivers.map((d) => [d.profileId, d.fullName] as const),
+
+  // Build per-driver hint: stop count on today's pending/active route, or
+  // "no route yet". Pre-resolves so the client component stays dumb.
+  const stopCountsByRouteId = new Map<string, number>();
+  await Promise.all(
+    routes.map(async (r) => {
+      const stops = await storage.listStops(r.id);
+      stopCountsByRouteId.set(r.id, stops.length);
+    }),
   );
-  const routeOptions = routes.map((r) => ({
-    id: r.id,
-    label: routeLabel(r, driverNameById.get(r.driverId)),
-  }));
+  const driverOptions: DriverOption[] = drivers
+    .filter((d) => d.active)
+    .map((d) => {
+      const todaysRoutes = routes.filter(
+        (r) => r.driverId === d.profileId && r.status !== "completed",
+      );
+      const totalStops = todaysRoutes.reduce(
+        (acc, r) => acc + (stopCountsByRouteId.get(r.id) ?? 0),
+        0,
+      );
+      const hint =
+        todaysRoutes.length === 0
+          ? "no route yet"
+          : `${totalStops} stop${totalStops === 1 ? "" : "s"} today`;
+      return { driverId: d.profileId, fullName: d.fullName, hint };
+    });
 
   const rows = allRequests
     .filter((r) => isCreatedToday(r, today))
@@ -136,23 +201,18 @@ export default async function DispatcherRequestsPage({
             </thead>
             <tbody className="divide-y divide-gray-200">
               {rows.map((r) => {
-                const office = r.officeId
-                  ? officeById.get(r.officeId)
-                  : undefined;
-                const fromLabel = office
-                  ? office.name
-                  : r.sourceIdentifier && r.sourceIdentifier.length > 0
-                    ? r.sourceIdentifier
-                    : "Unknown";
+                const sender = senderForRequest(r, officeById, offices, doctors);
                 return (
                   <tr key={r.id}>
                     <td className="px-4 py-2">
-                      {formatShortDateTime(r.createdAt)}
+                      <LocalDateTime iso={r.createdAt} style="relative" />
                     </td>
                     <td className="px-4 py-2">
                       <span className="badge badge-info">{r.channel}</span>
                     </td>
-                    <td className="px-4 py-2">{fromLabel}</td>
+                    <td className="px-4 py-2">
+                      <SenderCell display={sender} />
+                    </td>
                     <td className="px-4 py-2">
                       <span className={urgencyBadgeClass(r.urgency)}>
                         {r.urgency}
@@ -165,9 +225,9 @@ export default async function DispatcherRequestsPage({
                       </span>
                     </td>
                     <td className="flex flex-wrap items-center gap-3 px-4 py-2">
-                      <AssignToRouteSelect
+                      <AssignToDriverSelect
                         requestId={r.id}
-                        routes={routeOptions}
+                        drivers={driverOptions}
                       />
                       {r.status !== "flagged" ? (
                         <FlagForReviewButton requestId={r.id} />

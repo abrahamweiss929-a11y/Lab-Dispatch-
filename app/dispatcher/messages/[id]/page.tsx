@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DispatcherLayout } from "@/components/DispatcherLayout";
+import { LocalDateTime } from "@/components/LocalDateTime";
 import { getServices } from "@/interfaces";
-import { formatShortDateTime } from "@/lib/dates";
 import { requireDispatcherSession } from "@/lib/require-dispatcher";
+import { resolveSenderDisplay } from "@/lib/sender-display";
+import { SenderCell } from "../../_components/SenderCell";
 import { ReplyForm } from "../_components/ReplyForm";
 
 interface PageProps {
@@ -18,11 +20,21 @@ export default async function DispatcherMessageDetailPage({
 
   // For v1, fetch the full list and find by id. The messages table is
   // small (recent inbox); a per-row getter can be added later if needed.
-  const messages = await storage.listMessages({});
+  const [messages, offices, doctors] = await Promise.all([
+    storage.listMessages({}),
+    storage.listOffices(),
+    storage.listDoctors(),
+  ]);
   const message = messages.find((m) => m.id === params.id);
   if (message === undefined) {
     notFound();
   }
+
+  const senderDisplay = resolveSenderDisplay(
+    message.fromIdentifier,
+    offices,
+    doctors,
+  );
 
   // For email replies, see if we can match the sender to a known
   // office — that gates the "Reply via Email" affordance, since email
@@ -61,22 +73,23 @@ export default async function DispatcherMessageDetailPage({
         <header className="card-header">
           <span className="badge badge-info">{message.channel}</span>
           <span className="text-sm text-gray-500">
-            {formatShortDateTime(message.receivedAt)}
+            <LocalDateTime iso={message.receivedAt} />
           </span>
         </header>
         <dl className="kv-grid">
           <dt>From</dt>
-          <dd>{message.fromIdentifier}</dd>
+          <dd>
+            <SenderCell display={senderDisplay} />
+            {senderDisplay.kind === "match" ? (
+              <p className="mt-1 text-xs text-gray-400 break-all">
+                {message.fromIdentifier}
+              </p>
+            ) : null}
+          </dd>
           {message.subject !== undefined && message.subject.length > 0 ? (
             <>
               <dt>Subject</dt>
               <dd>{message.subject}</dd>
-            </>
-          ) : null}
-          {matchedOffice !== null ? (
-            <>
-              <dt>Matched office</dt>
-              <dd>{matchedOffice.name}</dd>
             </>
           ) : null}
           {message.pickupRequestId !== undefined ? (

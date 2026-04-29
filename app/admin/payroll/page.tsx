@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AdminLayout } from "@/components/AdminLayout";
+import { LocalDateTime } from "@/components/LocalDateTime";
 import { getServices } from "@/interfaces";
-import { formatShortDateTime } from "@/lib/dates";
 import {
   buildPayrollSummary,
   formatAvgPerStop,
@@ -99,10 +99,10 @@ export default async function PayrollPage({ searchParams }: PayrollPageProps) {
                 <tr key={row.driverId}>
                   <td className="px-4 py-2 font-medium">{row.driverName}</td>
                   <td className="px-4 py-2">
-                    {row.startIso ? formatShortDateTime(row.startIso) : "—"}
+                    {row.startIso ? <LocalDateTime iso={row.startIso} /> : "—"}
                   </td>
                   <td className="px-4 py-2">
-                    {row.endIso ? formatShortDateTime(row.endIso) : "—"}
+                    {row.endIso ? <LocalDateTime iso={row.endIso} /> : "—"}
                   </td>
                   <td className="px-4 py-2">
                     {formatHoursMinutes(row.workedMinutes)}

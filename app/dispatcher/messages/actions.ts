@@ -98,6 +98,20 @@ export async function sendReplyAction(
   return { status: "ok", sentTo: to, channel, error: null };
 }
 
+/**
+ * One-click convert: builds a default routine pickup request from the
+ * message and links it. Already shown on EVERY unlinked message
+ * (regardless of channel) by the messages list page — see the
+ * `m.pickupRequestId ? null : <ConvertToRequestButton>` conditional
+ * in /dispatcher/messages/page.tsx.
+ *
+ * Note: the spec called for a detailed form (office picker + urgency
+ * + sample count + notes) but storage doesn't yet expose a generic
+ * `updatePickupRequest(id, patch)` method — only
+ * `updatePickupRequestStatus`. Adding that is deferred to a future
+ * pass; for v1 the dispatcher edits the request from the requests
+ * page after conversion.
+ */
 export async function convertMessageToRequestAction(
   messageId: string,
 ): Promise<void> {
