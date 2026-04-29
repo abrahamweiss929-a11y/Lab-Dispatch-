@@ -3,6 +3,8 @@ import { DispatcherLayout } from "@/components/DispatcherLayout";
 import { getServices } from "@/interfaces";
 import { formatShortDateTime } from "@/lib/dates";
 import { requireDispatcherSession } from "@/lib/require-dispatcher";
+import { resolveSenderDisplay } from "@/lib/sender-display";
+import { SenderCell } from "../_components/SenderCell";
 import { ConvertToRequestButton } from "./_components/ConvertToRequestButton";
 import { SimulateInboundPanel } from "./_components/SimulateInboundPanel";
 
@@ -25,9 +27,14 @@ export default async function DispatcherMessagesPage({
 }) {
   await requireDispatcherSession();
   const filter = parseFilter(searchParams?.filter);
-  const messages = await getServices().storage.listMessages({
-    flagged: filter === "flagged" ? true : undefined,
-  });
+  const storage = getServices().storage;
+  const [messages, offices, doctors] = await Promise.all([
+    storage.listMessages({
+      flagged: filter === "flagged" ? true : undefined,
+    }),
+    storage.listOffices(),
+    storage.listDoctors(),
+  ]);
 
   const showSimulatePanel = process.env.USE_MOCKS !== "false";
 
@@ -86,7 +93,15 @@ export default async function DispatcherMessagesPage({
                   <td className="px-4 py-2">
                     <span className="badge badge-info">{m.channel}</span>
                   </td>
-                  <td className="px-4 py-2">{m.fromIdentifier}</td>
+                  <td className="px-4 py-2">
+                    <SenderCell
+                      display={resolveSenderDisplay(
+                        m.fromIdentifier,
+                        offices,
+                        doctors,
+                      )}
+                    />
+                  </td>
                   <td className="px-4 py-2">
                     {m.subject && m.subject.length > 0 ? m.subject : "—"}
                   </td>
