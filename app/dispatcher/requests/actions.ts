@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getServices } from "@/interfaces";
 import type { AdminFormState } from "@/lib/admin-form";
+import { todayIso } from "@/lib/dates";
 import { requireDispatcherSession } from "@/lib/require-dispatcher";
 import type { PickupUrgency } from "@/lib/types";
 
@@ -21,6 +22,50 @@ export async function assignRequestToRouteAction(
   await getServices().storage.assignRequestToRoute(routeId, requestId);
   revalidatePath("/dispatcher/requests");
   revalidatePath(`/dispatcher/routes/${routeId}`);
+}
+
+/**
+ * "Assign to driver" — picks the driver's active/pending route for
+ * today, or creates one when none exists. Returns nothing; side
+ * effects: pickup_requests row gets assigned to a stop, and a route
+ * may be newly created.
+ */
+export async function assignRequestToDriverAction(
+  requestId: string,
+  formData: FormData,
+): Promise<void> {
+  await requireDispatcherSession();
+  const driverId = String(formData.get("driverId") ?? "").trim();
+  if (driverId.length === 0) return;
+
+  const storage = getServices().storage;
+  const today = todayIso();
+
+  // Find an existing route for this driver for today (any non-completed
+  // status). If none, create a fresh pending route.
+  const todaysRoutes = await storage.listRoutes({
+    driverId,
+    date: today,
+  });
+  const usable = todaysRoutes.find(
+    (r) => r.status === "active" || r.status === "pending",
+  );
+
+  let routeId: string;
+  if (usable) {
+    routeId = usable.id;
+  } else {
+    const created = await storage.createRoute({
+      driverId,
+      routeDate: today,
+    });
+    routeId = created.id;
+  }
+
+  await storage.assignRequestToRoute(routeId, requestId);
+  revalidatePath("/dispatcher/requests");
+  revalidatePath(`/dispatcher/routes/${routeId}`);
+  revalidatePath("/dispatcher/routes");
 }
 
 export async function flagRequestAction(

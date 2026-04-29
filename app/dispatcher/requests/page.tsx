@@ -7,9 +7,12 @@ import {
   resolveSenderDisplay,
   type SenderDisplay,
 } from "@/lib/sender-display";
-import type { Office, PickupRequest, Route } from "@/lib/types";
+import type { Office, PickupRequest } from "@/lib/types";
 import { SenderCell } from "../_components/SenderCell";
-import { AssignToRouteSelect } from "./_components/AssignToRouteSelect";
+import {
+  AssignToDriverSelect,
+  type DriverOption,
+} from "./_components/AssignToDriverSelect";
 import { FlagForReviewButton } from "./_components/FlagForReviewButton";
 import { MarkResolvedButton } from "./_components/MarkResolvedButton";
 
@@ -38,11 +41,6 @@ function passesStatusFilter(r: PickupRequest, filter: FilterTab): boolean {
   if (filter === "pending") return r.status === "pending";
   if (filter === "flagged") return r.status === "flagged";
   return true;
-}
-
-function routeLabel(route: Route, driverName: string | undefined): string {
-  const name = driverName ?? "Unknown driver";
-  return `${name} · ${route.status}`;
 }
 
 /**
@@ -118,13 +116,32 @@ export default async function DispatcherRequestsPage({
   ]);
 
   const officeById = new Map(offices.map((o) => [o.id, o] as const));
-  const driverNameById = new Map(
-    drivers.map((d) => [d.profileId, d.fullName] as const),
+
+  // Build per-driver hint: stop count on today's pending/active route, or
+  // "no route yet". Pre-resolves so the client component stays dumb.
+  const stopCountsByRouteId = new Map<string, number>();
+  await Promise.all(
+    routes.map(async (r) => {
+      const stops = await storage.listStops(r.id);
+      stopCountsByRouteId.set(r.id, stops.length);
+    }),
   );
-  const routeOptions = routes.map((r) => ({
-    id: r.id,
-    label: routeLabel(r, driverNameById.get(r.driverId)),
-  }));
+  const driverOptions: DriverOption[] = drivers
+    .filter((d) => d.active)
+    .map((d) => {
+      const todaysRoutes = routes.filter(
+        (r) => r.driverId === d.profileId && r.status !== "completed",
+      );
+      const totalStops = todaysRoutes.reduce(
+        (acc, r) => acc + (stopCountsByRouteId.get(r.id) ?? 0),
+        0,
+      );
+      const hint =
+        todaysRoutes.length === 0
+          ? "no route yet"
+          : `${totalStops} stop${totalStops === 1 ? "" : "s"} today`;
+      return { driverId: d.profileId, fullName: d.fullName, hint };
+    });
 
   const rows = allRequests
     .filter((r) => isCreatedToday(r, today))
@@ -207,9 +224,9 @@ export default async function DispatcherRequestsPage({
                       </span>
                     </td>
                     <td className="flex flex-wrap items-center gap-3 px-4 py-2">
-                      <AssignToRouteSelect
+                      <AssignToDriverSelect
                         requestId={r.id}
-                        routes={routeOptions}
+                        drivers={driverOptions}
                       />
                       {r.status !== "flagged" ? (
                         <FlagForReviewButton requestId={r.id} />

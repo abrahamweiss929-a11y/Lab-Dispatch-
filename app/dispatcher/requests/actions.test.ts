@@ -22,6 +22,7 @@ vi.mock("@/lib/require-dispatcher", () => ({
 }));
 
 import {
+  assignRequestToDriverAction,
   assignRequestToRouteAction,
   createManualRequestAction,
   flagRequestAction,
@@ -246,6 +247,84 @@ describe("dispatcher/requests server actions", () => {
           INITIAL_ADMIN_FORM_STATE,
           fd({ officeId: office.id, urgency: "routine" }),
         ),
+      ).rejects.toThrow(/REDIRECT:\/login/);
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+  });
+
+  describe("assignRequestToDriverAction", () => {
+    it("creates a new pending route for today and assigns the stop when the driver has none", async () => {
+      const office = await seedOffice();
+      const driver = await seedDriver();
+      const req = await storageMock.createPickupRequest({
+        officeId: office.id,
+        channel: "manual",
+        urgency: "routine",
+      });
+
+      await assignRequestToDriverAction(
+        req.id,
+        fd({ driverId: driver.profileId }),
+      );
+
+      const routes = await storageMock.listRoutes({});
+      expect(routes).toHaveLength(1);
+      expect(routes[0]?.driverId).toBe(driver.profileId);
+      expect(routes[0]?.status).toBe("pending");
+
+      const stops = await storageMock.listStops(routes[0]!.id);
+      expect(stops).toHaveLength(1);
+      expect(stops[0]?.pickupRequestId).toBe(req.id);
+    });
+
+    it("appends to the driver's existing pending route when one exists for today", async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const office = await seedOffice();
+      const driver = await seedDriver();
+      const existingRoute = await storageMock.createRoute({
+        driverId: driver.profileId,
+        routeDate: today,
+      });
+      const earlierReq = await storageMock.createPickupRequest({
+        officeId: office.id,
+        channel: "manual",
+        urgency: "routine",
+      });
+      await storageMock.assignRequestToRoute(
+        existingRoute.id,
+        earlierReq.id,
+      );
+
+      const newReq = await storageMock.createPickupRequest({
+        officeId: office.id,
+        channel: "manual",
+        urgency: "routine",
+      });
+      await assignRequestToDriverAction(
+        newReq.id,
+        fd({ driverId: driver.profileId }),
+      );
+
+      const routes = await storageMock.listRoutes({});
+      expect(routes).toHaveLength(1); // no new route created
+      const stops = await storageMock.listStops(existingRoute.id);
+      expect(stops).toHaveLength(2);
+    });
+
+    it("ignores empty driverId", async () => {
+      await assignRequestToDriverAction("any-req", fd({ driverId: "" }));
+      const routes = await storageMock.listRoutes({});
+      expect(routes).toHaveLength(0);
+    });
+
+    it("bails on auth failure", async () => {
+      requireDispatcherSessionMock.mockImplementationOnce(() => {
+        throw new Error("REDIRECT:/login");
+      });
+      const spy = vi.spyOn(storageMock, "createRoute");
+      await expect(
+        assignRequestToDriverAction("req-x", fd({ driverId: "drv-1" })),
       ).rejects.toThrow(/REDIRECT:\/login/);
       expect(spy).not.toHaveBeenCalled();
       spy.mockRestore();
