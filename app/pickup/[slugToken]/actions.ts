@@ -55,9 +55,11 @@ export async function submitPickupRequestAction(
 
   const fieldErrors: FieldErrors = {};
 
-  if (notes.length < 10) {
-    fieldErrors.notes = "Please share at least 10 characters so we know what to pick up.";
-  } else if (notes.length > 1000) {
+  // Notes are OPTIONAL — empty is fine. We only enforce a defensive
+  // upper bound so a runaway paste doesn't blow up storage. The
+  // doctor's office may legitimately submit "pickup now" or no body
+  // at all when the message is implicit (regular daily run).
+  if (notes.length > 1000) {
     fieldErrors.notes = "Please keep notes under 1000 characters.";
   }
 
