@@ -110,16 +110,32 @@ export async function handleInboundMessage(
     const request = await storage.createPickupRequest(pickupInput);
     await storage.linkMessageToRequest(storedMessage.id, request.id);
 
-    const replyBody = isFlagged ? FLAGGED_ACK_COPY : receivedCopy(parsed.sampleCount);
-
-    if (input.channel === "sms") {
-      await sms.sendSms({ to: canonicalFrom, body: replyBody });
-    } else {
-      await email.sendEmail({
-        to: canonicalFrom,
-        subject: buildReplySubject(input.subject),
-        textBody: replyBody,
-      });
+    // Auto-confirmation policy: send a polite ack ONLY for non-flagged
+    // requests where the sender matched a known office. Flagged
+    // requests get human review first — the dispatcher decides whether
+    // to confirm. This avoids confirming bad parses to the sender.
+    if (!isFlagged) {
+      const officeName = office.name;
+      try {
+        if (input.channel === "sms") {
+          await sms.sendSms({
+            to: canonicalFrom,
+            body: `Lab Dispatch: pickup request received from ${officeName}. A driver will be assigned shortly.`,
+          });
+        } else {
+          await email.sendEmail({
+            to: canonicalFrom,
+            subject: "Pickup request received — Lab Dispatch",
+            textBody: `We've received your pickup request from ${officeName}. A driver will be assigned shortly.\n\n— Lab Dispatch`,
+          });
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error(
+          "inbound-pipeline: auto-confirmation reply failed",
+          err,
+        );
+      }
     }
 
     return isFlagged

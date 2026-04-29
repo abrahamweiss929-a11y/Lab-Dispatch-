@@ -101,7 +101,10 @@ describe("handleInboundMessage", () => {
     expect(await storageMock.listPickupRequests()).toHaveLength(0);
   });
 
-  it("low confidence: creates a flagged pickup request, sends the ack copy", async () => {
+  it("low confidence: creates a flagged pickup request, sends NO auto-reply (post-2026-04-29 policy)", async () => {
+    // Updated policy: flagged requests get no automatic confirmation —
+    // dispatcher reviews before any sender-facing reply. Avoids
+    // confirming a bad parse to the sender.
     const office = await seedOffice({ phone: "+15550002222" });
     vi.spyOn(aiMock, "parsePickupMessage").mockResolvedValueOnce({
       confidence: 0.4,
@@ -126,13 +129,15 @@ describe("handleInboundMessage", () => {
     const messages = await storageMock.listMessages();
     expect(messages[0]?.pickupRequestId).toBe(requests[0]?.id);
 
-    const sms = getSent();
-    expect(sms).toHaveLength(1);
-    expect(sms[0]?.body).toMatch(/we got your message/i);
+    // No auto-reply sent for flagged requests.
+    expect(getSent()).toHaveLength(0);
   });
 
-  it("high confidence with sample count: creates pending request and urgency copy", async () => {
-    await seedOffice({ phone: "+15550002222" });
+  it("high confidence: creates pending request and sends auto-confirmation SMS naming the office", async () => {
+    await seedOffice({
+      name: "Acme Clinic",
+      phone: "+15550002222",
+    });
     vi.spyOn(aiMock, "parsePickupMessage").mockResolvedValueOnce({
       confidence: 0.9,
       urgency: "urgent",
@@ -160,30 +165,16 @@ describe("handleInboundMessage", () => {
 
     const sms = getSent();
     expect(sms).toHaveLength(1);
-    expect(sms[0]?.body).toContain("for 3 samples");
+    expect(sms[0]?.body).toContain("Acme Clinic");
+    expect(sms[0]?.body).toContain("Lab Dispatch:");
+    expect(sms[0]?.body).toMatch(/driver will be assigned/i);
   });
 
-  it("high confidence without sample count: auto-reply falls back to 'for your samples'", async () => {
-    await seedOffice({ phone: "+15550002222" });
-    vi.spyOn(aiMock, "parsePickupMessage").mockResolvedValueOnce({
-      confidence: 0.8,
-      urgency: "routine",
+  it("email happy path: lowercased to, auto-confirmation subject + office name in body", async () => {
+    await seedOffice({
+      name: "Acme Clinic",
+      email: "front-desk@acme.test",
     });
-
-    const result = await handleInboundMessage({
-      channel: "sms",
-      from: "+15550002222",
-      body: "come pick up",
-    });
-
-    expect(result.status).toBe("received");
-    const sms = getSent();
-    expect(sms).toHaveLength(1);
-    expect(sms[0]?.body).toContain("for your samples");
-  });
-
-  it("email happy path: lowercased to, Re: subject preserved, auto-reply via email", async () => {
-    await seedOffice({ email: "front-desk@acme.test" });
     vi.spyOn(aiMock, "parsePickupMessage").mockResolvedValueOnce({
       confidence: 0.9,
       urgency: "routine",
@@ -201,27 +192,10 @@ describe("handleInboundMessage", () => {
     const emails = getSentEmails();
     expect(emails).toHaveLength(1);
     expect(emails[0]?.to).toBe("front-desk@acme.test");
-    expect(emails[0]?.subject).toBe("Re: Pickup today");
-    expect(emails[0]?.textBody).toContain("for 2 samples");
+    expect(emails[0]?.subject).toBe("Pickup request received — Lab Dispatch");
+    expect(emails[0]?.textBody).toContain("Acme Clinic");
+    expect(emails[0]?.textBody).toMatch(/driver will be assigned/i);
     expect(getSent()).toHaveLength(0);
-  });
-
-  it("email happy path without subject: falls back to 'Pickup request received'", async () => {
-    await seedOffice({ email: "front-desk@acme.test" });
-    vi.spyOn(aiMock, "parsePickupMessage").mockResolvedValueOnce({
-      confidence: 0.9,
-      urgency: "routine",
-      sampleCount: 1,
-    });
-
-    await handleInboundMessage({
-      channel: "email",
-      from: "front-desk@acme.test",
-      body: "one sample",
-    });
-
-    const emails = getSentEmails();
-    expect(emails[0]?.subject).toBe("Pickup request received");
   });
 
   it("pipeline error after message stored: swallows, returns error, no auto-reply", async () => {
