@@ -79,6 +79,18 @@ export async function handleInboundMessage(
         : await storage.findOfficeByEmail(canonicalFrom);
 
     if (office === null) {
+      // Diagnostic for SMS: when no office matches the inbound phone
+      // number, the dispatcher sees an unlinked message but the
+      // sender gets no auto-reply (empty TwiML). Log the lookup
+      // result so production debugging can tell "no office on file"
+      // apart from "code bug". No PII — only the channel + lookup
+      // outcome.
+      if (input.channel === "sms") {
+        // eslint-disable-next-line no-console
+        console.log(
+          "[inbound-pipeline] sms unknown_sender — findOfficeByPhone returned null",
+        );
+      }
       // SMS path: the route handler returns empty TwiML — Twilio
       // expects every webhook response to be valid TwiML, and no
       // auto-reply is the right behavior for unmatched senders

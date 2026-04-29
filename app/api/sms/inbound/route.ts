@@ -90,18 +90,35 @@ export async function POST(req: Request): Promise<Response> {
       from: rawFrom,
       body: rawBody,
     });
+
+    // Diagnostic logging for production: which TwiML branch did we
+    // emit, and (if Message) does the body length look right? Helps
+    // distinguish "we sent a reply but Twilio dropped it" (A2P 10DLC
+    // filtering on US carriers) from "our pipeline didn't produce a
+    // reply" (no office match for this number, or AI flagged the
+    // message). The body length is logged, NOT the body itself —
+    // keeps the office name and phone out of plaintext logs.
     if (
       result.status === "received" &&
       typeof result.smsAutoReplyBody === "string" &&
       result.smsAutoReplyBody.length > 0
     ) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[sms-inbound] status=received reply=Message bodyLen=${result.smsAutoReplyBody.length} requestId=${result.requestId}`,
+      );
       return twimlResponse(messageTwimlResponse(result.smsAutoReplyBody));
     }
     // unknown_sender / flagged / received-without-body / error → empty
     // TwiML. The Content-Type is what kills Twilio error 12300; an
     // empty <Response> still satisfies that.
+    // eslint-disable-next-line no-console
+    console.log(
+      `[sms-inbound] status=${result.status} reply=empty (no auto-reply for this branch)`,
+    );
     return twimlResponse(emptyTwimlResponse());
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error("inbound SMS route error", err);
     return twimlResponse(emptyTwimlResponse());
   }

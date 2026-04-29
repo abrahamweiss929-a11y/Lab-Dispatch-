@@ -105,7 +105,11 @@ describe("submitPickupRequestAction", () => {
     expect(rows[0]?.sampleCount).toBeUndefined();
   });
 
-  it("returns field error when notes are missing", async () => {
+  // Notes are optional as of 2026-04-29 — no minimum length. The
+  // doctor's office may submit "pickup now", a single character, or
+  // nothing at all (e.g. for routine daily runs where the request
+  // itself carries the meaning).
+  it("succeeds with empty notes (notes are optional)", async () => {
     await seedOffice();
     const state = await submitPickupRequestAction(
       INITIAL_PICKUP_FORM_STATE,
@@ -116,20 +120,50 @@ describe("submitPickupRequestAction", () => {
         sampleCount: "",
       }),
     );
-    expect(state.status).toBe("error");
-    if (state.status !== "error") return;
-    expect(state.fieldErrors.notes).toBeTruthy();
-    expect(await storageMock.listPickupRequests()).toHaveLength(0);
-    expect(getSentEmails()).toHaveLength(0);
+    expect(state.status).toBe("ok");
+    const rows = await storageMock.listPickupRequests();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.specialInstructions).toBe("");
   });
 
-  it("returns field error when notes are too short (5 chars)", async () => {
+  it("succeeds with a single-character notes value (no minimum)", async () => {
     await seedOffice();
     const state = await submitPickupRequestAction(
       INITIAL_PICKUP_FORM_STATE,
       fd({
         slugToken: "acme-clinic-a1b2c3d4e5f6",
-        notes: "short",
+        notes: "x",
+        urgency: "routine",
+        sampleCount: "",
+      }),
+    );
+    expect(state.status).toBe("ok");
+    const rows = await storageMock.listPickupRequests();
+    expect(rows[0]?.specialInstructions).toBe("x");
+  });
+
+  it("succeeds with the production-bug short value 'ss' (regression for 2026-04-29 fix)", async () => {
+    await seedOffice();
+    const state = await submitPickupRequestAction(
+      INITIAL_PICKUP_FORM_STATE,
+      fd({
+        slugToken: "acme-clinic-a1b2c3d4e5f6",
+        notes: "ss",
+        urgency: "routine",
+        sampleCount: "",
+      }),
+    );
+    expect(state.status).toBe("ok");
+  });
+
+  it("still rejects pathological 1001+ char notes (defensive upper bound)", async () => {
+    await seedOffice();
+    const longNotes = "x".repeat(1001);
+    const state = await submitPickupRequestAction(
+      INITIAL_PICKUP_FORM_STATE,
+      fd({
+        slugToken: "acme-clinic-a1b2c3d4e5f6",
+        notes: longNotes,
         urgency: "routine",
         sampleCount: "",
       }),

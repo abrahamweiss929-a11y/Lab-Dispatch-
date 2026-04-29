@@ -92,13 +92,13 @@ export function PickupRequestForm({
         <input type="hidden" name="slugToken" value={slugToken} />
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Notes</span>
+          <span className="font-medium">Notes (optional)</span>
           <textarea
             name="notes"
             maxLength={1000}
             rows={4}
             className="rounded border border-gray-300 px-3 py-2"
-            placeholder="What are we picking up? (patient count, sample type, any special instructions)"
+            placeholder="Any details about the pickup are helpful — patient count, sample type, special instructions. Skip if it's a regular run."
           />
           {"notes" in fieldErrors && fieldErrors.notes ? (
             <span className="text-xs text-red-600">{fieldErrors.notes}</span>

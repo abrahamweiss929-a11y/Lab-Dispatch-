@@ -99,24 +99,54 @@ export async function sendReplyAction(
 }
 
 /**
- * One-click convert: builds a default routine pickup request from the
- * message and links it. Already shown on EVERY unlinked message
- * (regardless of channel) by the messages list page — see the
- * `m.pickupRequestId ? null : <ConvertToRequestButton>` conditional
- * in /dispatcher/messages/page.tsx.
+ * Convert a message to a pickup request.
  *
- * Note: the spec called for a detailed form (office picker + urgency
- * + sample count + notes) but storage doesn't yet expose a generic
- * `updatePickupRequest(id, patch)` method — only
- * `updatePickupRequestStatus`. Adding that is deferred to a future
- * pass; for v1 the dispatcher edits the request from the requests
- * page after conversion.
+ * Two paths:
+ *   - If the message has NO pickup_request_id yet, call
+ *     storage.createRequestFromMessage which both creates a row and
+ *     links the message to it (the original behavior).
+ *   - If the message IS already linked (auto-created by the inbound
+ *     pipeline), create a STANDALONE new request via
+ *     storage.createPickupRequest. The original link stays intact —
+ *     the dispatcher gets an independent request they can edit on
+ *     /dispatcher/requests. This is the "convert again" affordance
+ *     for cases where the auto-detected fields were wrong.
+ *
+ * The dispatcher never sees an "already linked" error. The button is
+ * always available on the messages list.
  */
 export async function convertMessageToRequestAction(
   messageId: string,
 ): Promise<void> {
   await requireDispatcherSession();
-  await getServices().storage.createRequestFromMessage(messageId);
+  const storage = getServices().storage;
+
+  // Fetch the message via listMessages — there's no per-id getter on
+  // storage yet. Cheap on the inbox volume.
+  const messages = await storage.listMessages({});
+  const message = messages.find((m) => m.id === messageId);
+  if (!message) {
+    throw new Error(`message ${messageId} not found`);
+  }
+
+  if (message.pickupRequestId === undefined) {
+    // First-time convert: createRequestFromMessage handles both
+    // creating the request and linking the message in one call.
+    await storage.createRequestFromMessage(messageId);
+  } else {
+    // Re-convert: create a standalone manual request from the same
+    // message body. Do NOT touch the existing link — the original
+    // auto-created request keeps its connection to this message;
+    // the new one stands on its own for the dispatcher to manage.
+    await storage.createPickupRequest({
+      channel: "manual",
+      sourceIdentifier: message.fromIdentifier,
+      rawMessage: message.body,
+      urgency: "routine",
+      status: "pending",
+    });
+  }
+
   revalidatePath("/dispatcher/messages");
   revalidatePath("/dispatcher/requests");
 }
