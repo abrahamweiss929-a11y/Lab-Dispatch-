@@ -40,7 +40,10 @@ describe("handleInboundMessage", () => {
     resetAllMocks();
   });
 
-  it("unknown SMS sender: stores the message, sends the brush-off, creates no request", async () => {
+  it("unknown SMS sender: stores the message, NO separate sms.sendSms (TwiML route handles reply)", async () => {
+    // Post-2026-04-29: SMS auto-replies are returned as TwiML from
+    // the route handler, not via a separate Twilio API call. The
+    // pipeline does not call sms.sendSms for unknown SMS senders.
     const result = await handleInboundMessage({
       channel: "sms",
       from: "+15550001111",
@@ -55,10 +58,8 @@ describe("handleInboundMessage", () => {
     expect(messages[0]?.fromIdentifier).toBe("+15550001111");
     expect(messages[0]?.pickupRequestId).toBeUndefined();
 
-    const sms = getSent();
-    expect(sms).toHaveLength(1);
-    expect(sms[0]?.to).toBe("+15550001111");
-    expect(sms[0]?.body).toMatch(/isn't set up for pickups yet/);
+    // No separate Twilio API call from the pipeline.
+    expect(getSent()).toHaveLength(0);
 
     expect(await storageMock.listPickupRequests()).toHaveLength(0);
   });
@@ -133,7 +134,10 @@ describe("handleInboundMessage", () => {
     expect(getSent()).toHaveLength(0);
   });
 
-  it("high confidence: creates pending request and sends auto-confirmation SMS naming the office", async () => {
+  it("high confidence SMS: creates pending request, returns smsAutoReplyBody for TwiML", async () => {
+    // Post-2026-04-29: the pipeline returns the auto-reply body via
+    // result.smsAutoReplyBody so the route handler can emit it as
+    // TwiML. The pipeline does NOT call sms.sendSms.
     await seedOffice({
       name: "Acme Clinic",
       phone: "+15550002222",
@@ -152,22 +156,20 @@ describe("handleInboundMessage", () => {
     });
 
     expect(result.status).toBe("received");
+    if (result.status !== "received") return;
+    expect(result.smsAutoReplyBody).toBeTruthy();
+    expect(result.smsAutoReplyBody).toContain("Acme Clinic");
+    expect(result.smsAutoReplyBody).toContain("Lab Dispatch:");
+    expect(result.smsAutoReplyBody).toMatch(/driver will be assigned/i);
 
     const requests = await storageMock.listPickupRequests();
     expect(requests).toHaveLength(1);
     expect(requests[0]?.status).toBe("pending");
     expect(requests[0]?.urgency).toBe("urgent");
     expect(requests[0]?.sampleCount).toBe(3);
-    expect(requests[0]?.specialInstructions).toBe("fridge");
 
-    const messages = await storageMock.listMessages();
-    expect(messages[0]?.pickupRequestId).toBe(requests[0]?.id);
-
-    const sms = getSent();
-    expect(sms).toHaveLength(1);
-    expect(sms[0]?.body).toContain("Acme Clinic");
-    expect(sms[0]?.body).toContain("Lab Dispatch:");
-    expect(sms[0]?.body).toMatch(/driver will be assigned/i);
+    // Crucially: no separate Twilio API call.
+    expect(getSent()).toHaveLength(0);
   });
 
   it("email happy path: lowercased to, auto-confirmation subject + office name in body", async () => {

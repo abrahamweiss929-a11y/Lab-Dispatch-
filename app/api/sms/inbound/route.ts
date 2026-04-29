@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { handleInboundMessage } from "@/lib/inbound-pipeline";
 import { smsInboundBucket } from "@/lib/inbound-rate-limits";
 import {
+  emptyTwimlResponse,
+  messageTwimlResponse,
+  twimlResponse,
+} from "@/lib/twiml";
+import {
   reconstructWebhookUrl,
   verifyTwilioSignature,
 } from "@/lib/twilio-signature";
@@ -14,6 +19,12 @@ import {
 // The auth token is read lazily from `TWILIO_AUTH_TOKEN`. When the token
 // is unset, the route deliberately returns 503 — fail-closed: we'd
 // rather drop messages than accept unsigned ones in production.
+//
+// Response shape: TwiML XML. Twilio rejects any other Content-Type
+// with error 12300 ("Invalid Content-Type"). Auto-replies are returned
+// inline via `<Message>...</Message>` so we don't pay a separate
+// Twilio API roundtrip and the webhook stays under Twilio's 15-second
+// response budget.
 export async function POST(req: Request): Promise<Response> {
   const authToken = process.env.TWILIO_AUTH_TOKEN;
   if (!authToken || authToken.length === 0) {
@@ -34,7 +45,13 @@ export async function POST(req: Request): Promise<Response> {
       params[k] = v;
     }
   } catch {
-    return NextResponse.json({ status: "invalid_payload" }, { status: 400 });
+    // Bad payload — give Twilio a valid TwiML response anyway (so it
+    // doesn't log 12300) but with a 400 status so Twilio reports the
+    // failed-delivery in its dashboard.
+    return new Response(emptyTwimlResponse(), {
+      status: 400,
+      headers: { "Content-Type": "text/xml; charset=utf-8" },
+    });
   }
 
   const url = reconstructWebhookUrl(req);
@@ -46,23 +63,25 @@ export async function POST(req: Request): Promise<Response> {
     headerSignature,
   });
   if (!ok) {
-    return NextResponse.json(
-      { status: "invalid_signature" },
-      { status: 403 },
-    );
+    // Bad signature — return 403 with a TwiML body so Twilio doesn't
+    // additionally log 12300.
+    return new Response(emptyTwimlResponse(), {
+      status: 403,
+      headers: { "Content-Type": "text/xml; charset=utf-8" },
+    });
   }
 
   const rawFrom = params.From;
   const rawBody = params.Body;
   if (typeof rawFrom !== "string" || rawFrom.length === 0) {
-    return NextResponse.json({ status: "invalid_payload" }, { status: 200 });
+    return twimlResponse(emptyTwimlResponse());
   }
   if (typeof rawBody !== "string" || rawBody.length === 0) {
-    return NextResponse.json({ status: "invalid_payload" }, { status: 200 });
+    return twimlResponse(emptyTwimlResponse());
   }
 
   if (!smsInboundBucket.tryConsume(rawFrom)) {
-    return NextResponse.json({ status: "rate_limited" }, { status: 200 });
+    return twimlResponse(emptyTwimlResponse());
   }
 
   try {
@@ -71,9 +90,19 @@ export async function POST(req: Request): Promise<Response> {
       from: rawFrom,
       body: rawBody,
     });
-    return NextResponse.json(result, { status: 200 });
+    if (
+      result.status === "received" &&
+      typeof result.smsAutoReplyBody === "string" &&
+      result.smsAutoReplyBody.length > 0
+    ) {
+      return twimlResponse(messageTwimlResponse(result.smsAutoReplyBody));
+    }
+    // unknown_sender / flagged / received-without-body / error → empty
+    // TwiML. The Content-Type is what kills Twilio error 12300; an
+    // empty <Response> still satisfies that.
+    return twimlResponse(emptyTwimlResponse());
   } catch (err) {
     console.error("inbound SMS route error", err);
-    return NextResponse.json({ status: "error" }, { status: 200 });
+    return twimlResponse(emptyTwimlResponse());
   }
 }

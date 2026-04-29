@@ -15,7 +15,19 @@ export interface InboundMessageInput {
 export type InboundPipelineResult =
   | { status: "unknown_sender"; messageId: string }
   | { status: "flagged"; requestId: string; messageId: string }
-  | { status: "received"; requestId: string; messageId: string }
+  | {
+      status: "received";
+      requestId: string;
+      messageId: string;
+      /**
+       * For SMS channel ONLY: the auto-confirmation body the route
+       * handler should return as TwiML so Twilio delivers it inline.
+       * Email channel sends the confirmation directly via the email
+       * adapter and does not populate this. Undefined when no
+       * auto-reply should be sent.
+       */
+      smsAutoReplyBody?: string;
+    }
   | { status: "error"; messageId?: string };
 
 export const UNKNOWN_SENDER_COPY =
@@ -48,7 +60,9 @@ function buildReplySubject(subject: string | undefined): string {
 export async function handleInboundMessage(
   input: InboundMessageInput,
 ): Promise<InboundPipelineResult> {
-  const { storage, sms, email, ai } = getServices();
+  // `sms` is intentionally absent: SMS auto-replies are returned via
+  // TwiML from the route handler, not via a separate Twilio API call.
+  const { storage, email, ai } = getServices();
   const canonicalFrom = canonicalFromFor(input);
 
   const storedMessage = await storage.createMessage({
@@ -65,23 +79,25 @@ export async function handleInboundMessage(
         : await storage.findOfficeByEmail(canonicalFrom);
 
     if (office === null) {
-      if (input.channel === "sms") {
-        // Skip the auto-reply when the raw `from` failed to normalize —
-        // we should not send to a malformed destination. The message is
-        // still stored for dispatcher review.
-        const deliverable = normalizeUsPhone(input.from) !== null;
-        if (deliverable) {
-          await sms.sendSms({
+      // SMS path: the route handler returns empty TwiML — Twilio
+      // expects every webhook response to be valid TwiML, and no
+      // auto-reply is the right behavior for unmatched senders
+      // (avoids confirming our number/email is monitored to spam).
+      // Email path: still sends the polite brush-off via separate API.
+      if (input.channel === "email") {
+        try {
+          await email.sendEmail({
             to: canonicalFrom,
-            body: UNKNOWN_SENDER_COPY,
+            subject: buildReplySubject(input.subject),
+            textBody: UNKNOWN_SENDER_COPY,
           });
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error(
+            "inbound-pipeline: unknown-sender email reply failed",
+            err,
+          );
         }
-      } else {
-        await email.sendEmail({
-          to: canonicalFrom,
-          subject: buildReplySubject(input.subject),
-          textBody: UNKNOWN_SENDER_COPY,
-        });
       }
       return { status: "unknown_sender", messageId: storedMessage.id };
     }
@@ -114,37 +130,48 @@ export async function handleInboundMessage(
     // requests where the sender matched a known office. Flagged
     // requests get human review first — the dispatcher decides whether
     // to confirm. This avoids confirming bad parses to the sender.
+    //
+    // SMS path: do NOT call sms.sendSms — Twilio expects the
+    // confirmation back inline as TwiML in the webhook response. The
+    // pipeline returns the body via `smsAutoReplyBody`; the route
+    // handler emits TwiML. (Twilio error 12300 fires when the webhook
+    // returns the wrong Content-Type, so the route handler is the
+    // single source of truth for the response shape.)
+    let smsAutoReplyBody: string | undefined;
     if (!isFlagged) {
       const officeName = office.name;
-      try {
-        if (input.channel === "sms") {
-          await sms.sendSms({
-            to: canonicalFrom,
-            body: `Lab Dispatch: pickup request received from ${officeName}. A driver will be assigned shortly.`,
-          });
-        } else {
+      if (input.channel === "sms") {
+        smsAutoReplyBody = `Lab Dispatch: pickup request received from ${officeName}. A driver will be assigned shortly.`;
+      } else {
+        try {
           await email.sendEmail({
             to: canonicalFrom,
             subject: "Pickup request received — Lab Dispatch",
             textBody: `We've received your pickup request from ${officeName}. A driver will be assigned shortly.\n\n— Lab Dispatch`,
           });
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error(
+            "inbound-pipeline: auto-confirmation email failed",
+            err,
+          );
         }
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error(
-          "inbound-pipeline: auto-confirmation reply failed",
-          err,
-        );
       }
     }
 
-    return isFlagged
-      ? { status: "flagged", requestId: request.id, messageId: storedMessage.id }
-      : {
-          status: "received",
-          requestId: request.id,
-          messageId: storedMessage.id,
-        };
+    if (isFlagged) {
+      return {
+        status: "flagged",
+        requestId: request.id,
+        messageId: storedMessage.id,
+      };
+    }
+    return {
+      status: "received",
+      requestId: request.id,
+      messageId: storedMessage.id,
+      smsAutoReplyBody,
+    };
   } catch (err) {
     console.error("inbound-pipeline error after message stored", err);
     return { status: "error", messageId: storedMessage.id };
