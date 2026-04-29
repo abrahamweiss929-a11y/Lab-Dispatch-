@@ -1,4 +1,4 @@
-# UX polish report — 8 issues addressed
+# UX polish report — 9 issues addressed
 
 Date: 2026-04-29.
 Branch: `feat/ux-polish` → merged to `main` @ `a3ca22f` →
@@ -23,6 +23,7 @@ flake (acceptable per spec). Build green, deploy live.
 | — | _(no commit)_ | Convert-to-request on all unlinked (issue 7 — already correct on main) |
 | 7 | `07806e7` | Full absolute pickup URL + Copy button (issue 8) |
 | — | `a3ca22f` | Merge `feat/ux-polish` to main |
+| 5b | `6e43b3c` | SMS webhook TwiML (issue 9 — Twilio error 12300 fix; direct-to-main hotfix) |
 
 ## Files changed by phase
 
@@ -70,6 +71,18 @@ flake (acceptable per spec). Build green, deploy live.
   - form re-mounts via `key={requestId}` so inputs reset for follow-up
 - 5 inbound-pipeline tests rewritten to match the new policy
 
+### Phase 5b — SMS webhook TwiML response (issue 9)
+- **new** `lib/twiml.ts` — pure helpers (`escapeXml`, `emptyTwimlResponse`, `messageTwimlResponse`, `twimlResponse(body)` wrapper that sets `Content-Type: text/xml; charset=utf-8`)
+- **new** `lib/twiml.test.ts` (4 cases)
+- updated `app/api/sms/inbound/route.ts` — every response now returns TwiML XML with the correct Content-Type. The auth/signature/payload/rate-limit failures all return empty `<Response></Response>` (still valid TwiML so Twilio stops logging error 12300). The `TWILIO_AUTH_TOKEN` unset 503 still returns JSON because that's an ops-monitoring response, not a Twilio webhook reply.
+- updated `lib/inbound-pipeline.ts`:
+  - `InboundPipelineResult` for status="received" now carries an optional `smsAutoReplyBody?: string`. The route handler emits it as `<Message>...</Message>` inside the TwiML response.
+  - The pipeline NO LONGER calls `sms.sendSms` for auto-replies. The webhook response IS the reply — no second Twilio API roundtrip, faster (well under Twilio's 15s response budget).
+  - Unknown-sender SMS brush-off is dropped (per spec — empty TwiML, no auto-reply).
+  - Email path's unknown-sender brush-off via separate API call is preserved.
+- `app/api/sms/inbound/route.test.ts` rewritten for TwiML responses (12 cases — happy with Message, happy without, flagged, unknown_sender, signature failures, missing fields, rate limit, pipeline throw — every path asserts `Content-Type: text/xml` and a valid `<Response>` body)
+- `lib/inbound-pipeline.test.ts` SMS tests updated: now assert `result.smsAutoReplyBody` instead of `sms.sendSms` calls
+
 ### Phase 6 — Convert button on all unlinked (issue 7)
 - **No commit needed.** `/dispatcher/messages/page.tsx` already shows `<ConvertToRequestButton>` for every message where `m.pickupRequestId === undefined`, regardless of channel. The action `createRequestFromMessage` already handles email AND SMS via `message.channel`.
 - The spec's "open a small form with office picker + urgency + sample count + notes" is **deferred** — it requires a new `storage.updatePickupRequest(id, patch)` method that doesn't exist yet on either the mock or the real adapter. Adding that method touches the storage interface, both impls, and at least one test file. It's a follow-up.
@@ -84,13 +97,14 @@ flake (acceptable per spec). Build green, deploy live.
 
 ## Verification done in this session
 
-- `npm test` — **969/970 passing** (only UTC-midnight payroll flake fails)
+- `npm test` — **976/977 passing** (only UTC-midnight payroll flake fails)
 - `npx tsc --noEmit` — 0 errors
 - `npm run build` — Compiled successfully end-to-end
-- `git push origin main` — `f62d3d8 → a3ca22f` rolled
-- Vercel deploy — etag flipped (`7fcf38d6…` → `2d574479…` confirmed via cache-busted curl)
+- `git push origin main` — `f62d3d8 → a3ca22f → ed86b80 → 6e43b3c` rolled
+- Vercel deploy — etag flipped after the UX merge AND after the SMS-TwiML hotfix (verified via curl)
 - `curl /login` — HTTP 200
 - `curl /api/email/inbound` — HTTP 200 with `{"status":"ok","endpoint":"email-inbound"}`
+- `curl -X POST /api/sms/inbound` (no signature) — **HTTP 403** with `Content-Type: text/xml; charset=utf-8` and body `<?xml version="1.0" encoding="UTF-8"?><Response></Response>` (was previously JSON, triggering Twilio error 12300)
 
 ## Manual verification checklist for operator
 
