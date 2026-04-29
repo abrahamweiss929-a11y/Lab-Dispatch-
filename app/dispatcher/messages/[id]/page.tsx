@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DispatcherLayout } from "@/components/DispatcherLayout";
+import { LocalDateTime } from "@/components/LocalDateTime";
 import { getServices } from "@/interfaces";
-import { formatShortDateTime } from "@/lib/dates";
 import { requireDispatcherSession } from "@/lib/require-dispatcher";
 import { resolveSenderDisplay } from "@/lib/sender-display";
 import { SenderCell } from "../../_components/SenderCell";
@@ -73,7 +73,7 @@ export default async function DispatcherMessageDetailPage({
         <header className="card-header">
           <span className="badge badge-info">{message.channel}</span>
           <span className="text-sm text-gray-500">
-            {formatShortDateTime(message.receivedAt)}
+            <LocalDateTime iso={message.receivedAt} />
           </span>
         </header>
         <dl className="kv-grid">

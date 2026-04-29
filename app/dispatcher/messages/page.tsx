@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { DispatcherLayout } from "@/components/DispatcherLayout";
+import { LocalDateTime } from "@/components/LocalDateTime";
 import { getServices } from "@/interfaces";
-import { formatShortDateTime } from "@/lib/dates";
 import { requireDispatcherSession } from "@/lib/require-dispatcher";
 import { resolveSenderDisplay } from "@/lib/sender-display";
 import { SenderCell } from "../_components/SenderCell";
@@ -88,7 +88,7 @@ export default async function DispatcherMessagesPage({
               {messages.map((m) => (
                 <tr key={m.id}>
                   <td className="px-4 py-2">
-                    {formatShortDateTime(m.receivedAt)}
+                    <LocalDateTime iso={m.receivedAt} style="relative" />
                   </td>
                   <td className="px-4 py-2">
                     <span className="badge badge-info">{m.channel}</span>

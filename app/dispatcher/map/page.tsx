@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DispatcherLayout } from "@/components/DispatcherLayout";
+import { LocalDateTime } from "@/components/LocalDateTime";
 import { MapView, type MapPin } from "@/components/Map";
 import { getServices } from "@/interfaces";
 import { formatShortDateTime } from "@/lib/dates";
@@ -62,7 +63,7 @@ export default async function DispatcherMapPage() {
                       {driver?.fullName ?? "Unknown driver"}
                     </td>
                     <td className="px-4 py-2">
-                      {formatShortDateTime(loc.recordedAt)}
+                      <LocalDateTime iso={loc.recordedAt} style="relative" />
                     </td>
                     <td className="px-4 py-2 font-mono text-xs">
                       {loc.lat.toFixed(6)}

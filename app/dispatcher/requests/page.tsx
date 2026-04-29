@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { DispatcherLayout } from "@/components/DispatcherLayout";
+import { LocalDateTime } from "@/components/LocalDateTime";
 import { getServices } from "@/interfaces";
-import { formatShortDateTime, todayIso } from "@/lib/dates";
+import { todayIso } from "@/lib/dates";
 import { requireDispatcherSession } from "@/lib/require-dispatcher";
 import {
   resolveSenderDisplay,
@@ -204,7 +205,7 @@ export default async function DispatcherRequestsPage({
                 return (
                   <tr key={r.id}>
                     <td className="px-4 py-2">
-                      {formatShortDateTime(r.createdAt)}
+                      <LocalDateTime iso={r.createdAt} style="relative" />
                     </td>
                     <td className="px-4 py-2">
                       <span className="badge badge-info">{r.channel}</span>

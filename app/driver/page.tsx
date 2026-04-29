@@ -1,11 +1,8 @@
 import Link from "next/link";
 import { DriverLayout } from "@/components/DriverLayout";
+import { LocalDateTime } from "@/components/LocalDateTime";
 import { getServices } from "@/interfaces";
-import {
-  formatDateIsoToShort,
-  formatShortDateTime,
-  todayIso,
-} from "@/lib/dates";
+import { formatDateIsoToShort, todayIso } from "@/lib/dates";
 import { requireDriverOrAdminSession } from "@/lib/require-driver";
 import { getTodaysRouteForDriver } from "@/lib/today-route";
 import { StartRouteButton } from "./_components/StartRouteButton";
@@ -95,7 +92,7 @@ export default async function DriverTodayPage({
         </p>
         {route.status === "completed" && route.completedAt ? (
           <p className="mt-2 text-xs text-gray-500">
-            Completed {formatShortDateTime(route.completedAt)}
+            Completed <LocalDateTime iso={route.completedAt} />
           </p>
         ) : null}
       </div>

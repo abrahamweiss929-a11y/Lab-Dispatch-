@@ -1,5 +1,5 @@
 import { AdminLayout } from "@/components/AdminLayout";
-import { formatShortDateTime } from "@/lib/dates";
+import { LocalDateTime } from "@/components/LocalDateTime";
 import { listInvites } from "@/lib/invites-store";
 import { requireAdminSession } from "@/lib/require-admin";
 import { InviteForm } from "./_components/InviteForm";
@@ -58,10 +58,10 @@ export default async function AdminUsersPage() {
                       </span>
                     </td>
                     <td className="px-4 py-2 text-xs text-gray-500">
-                      {formatShortDateTime(inv.createdAt)}
+                      <LocalDateTime iso={inv.createdAt} />
                     </td>
                     <td className="px-4 py-2 text-xs text-gray-500">
-                      {formatShortDateTime(inv.expiresAt)}
+                      <LocalDateTime iso={inv.expiresAt} />
                     </td>
                     <td className="px-4 py-2">
                       {inv.status === "pending" ? (
