@@ -137,6 +137,60 @@ describe("dispatcher/routes server actions", () => {
       expect(spy).not.toHaveBeenCalled();
       spy.mockRestore();
     });
+
+    it("attaches selected pending requestIds as stops in submission order", async () => {
+      const driver = await seedActiveDriver();
+      const office = await seedOffice();
+      const r1 = await storageMock.createPickupRequest({
+        officeId: office.id,
+        channel: "manual",
+        urgency: "routine",
+      });
+      const r2 = await storageMock.createPickupRequest({
+        officeId: office.id,
+        channel: "manual",
+        urgency: "urgent",
+      });
+      const r3 = await storageMock.createPickupRequest({
+        officeId: office.id,
+        channel: "manual",
+        urgency: "routine",
+      });
+
+      // Build a FormData with multiple `requestIds` entries (the
+      // standard checkbox-array pattern).
+      const form = new FormData();
+      form.set("driverId", driver.profileId);
+      form.set("routeDate", "2099-12-31");
+      form.append("requestIds", r1.id);
+      form.append("requestIds", r2.id);
+      form.append("requestIds", r3.id);
+
+      await expect(
+        createRouteAction(INITIAL_ADMIN_FORM_STATE, form),
+      ).rejects.toThrow(/REDIRECT:\/dispatcher\/routes\//);
+
+      const routes = await storageMock.listRoutes({});
+      expect(routes).toHaveLength(1);
+      const stops = await storageMock.listStops(routes[0]!.id);
+      expect(stops).toHaveLength(3);
+      // Order matches form submission order.
+      expect(stops.map((s) => s.pickupRequestId)).toEqual([r1.id, r2.id, r3.id]);
+      expect(stops.map((s) => s.position)).toEqual([1, 2, 3]);
+    });
+
+    it("creates a route with NO stops when no requestIds are submitted", async () => {
+      const driver = await seedActiveDriver();
+      await expect(
+        createRouteAction(
+          INITIAL_ADMIN_FORM_STATE,
+          fd({ driverId: driver.profileId, routeDate: "2099-12-31" }),
+        ),
+      ).rejects.toThrow(/REDIRECT:\/dispatcher\/routes\//);
+      const routes = await storageMock.listRoutes({});
+      const stops = await storageMock.listStops(routes[0]!.id);
+      expect(stops).toHaveLength(0);
+    });
   });
 
   describe("addStopToRouteAction", () => {

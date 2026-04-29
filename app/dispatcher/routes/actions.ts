@@ -74,7 +74,32 @@ export async function createRouteAction(
     };
   }
 
+  // Optional multi-select: form may pass requestIds (formData.getAll
+  // returns every value for a repeated checkbox name). Each selected
+  // pending request becomes a stop on the new route, in the order
+  // submitted. Best-effort — a single bad request doesn't roll back
+  // the route creation.
+  const requestIds = formData
+    .getAll("requestIds")
+    .map((v) => String(v).trim())
+    .filter((v) => v.length > 0);
+
+  for (const requestId of requestIds) {
+    try {
+      await storage.assignRequestToRoute(created.id, requestId);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `createRouteAction: failed to assign request ${requestId}`,
+        err,
+      );
+    }
+  }
+
   revalidatePath("/dispatcher/routes");
+  if (requestIds.length > 0) {
+    revalidatePath("/dispatcher/requests");
+  }
   redirect(`/dispatcher/routes/${created.id}`);
 }
 
