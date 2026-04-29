@@ -130,12 +130,16 @@ export default async function DispatcherMessagesPage({
                     >
                       Open
                     </Link>
-                    {m.pickupRequestId ? null : (
-                      <>
-                        {" · "}
-                        <ConvertToRequestButton messageId={m.id} />
-                      </>
-                    )}
+                    {" · "}
+                    {/*
+                      Always show "Convert to request". When the
+                      message is already linked (auto-created via
+                      the inbound pipeline), clicking creates a
+                      standalone manual request from the same body —
+                      useful when the auto-detected fields were wrong
+                      and the dispatcher wants to start fresh.
+                    */}
+                    <ConvertToRequestButton messageId={m.id} />
                   </td>
                 </tr>
               ))}

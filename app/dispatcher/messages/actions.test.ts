@@ -87,6 +87,64 @@ describe("dispatcher/messages server actions", () => {
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
   });
+
+  // Regression for the 2026-04-29 'Convert to request not on linked
+  // messages' bug: the action now works whether or not the message
+  // already has a pickupRequestId. Already-linked messages get a
+  // standalone manual request — the original link is preserved.
+  it("creates a standalone manual request when the message is already linked", async () => {
+    seedMessage({
+      id: "msg-linked",
+      channel: "sms",
+      fromIdentifier: "+15551234567",
+      body: "follow-up pickup",
+      receivedAt: new Date().toISOString(),
+      pickupRequestId: "existing-req-1",
+    });
+
+    await convertMessageToRequestAction("msg-linked");
+
+    const requests = await storageMock.listPickupRequests();
+    // A new request was created (standalone manual one).
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.channel).toBe("manual");
+    expect(requests[0]?.status).toBe("pending");
+    expect(requests[0]?.urgency).toBe("routine");
+    expect(requests[0]?.sourceIdentifier).toBe("+15551234567");
+    expect(requests[0]?.rawMessage).toBe("follow-up pickup");
+
+    // The original pickupRequestId on the message is preserved —
+    // we did NOT overwrite it with the new request's id.
+    const messages = await storageMock.listMessages();
+    const refetched = messages.find((m) => m.id === "msg-linked");
+    expect(refetched?.pickupRequestId).toBe("existing-req-1");
+
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dispatcher/messages");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/dispatcher/requests");
+  });
+
+  it("first-time convert (no existing link) still uses createRequestFromMessage", async () => {
+    seedMessage({
+      id: "msg-fresh",
+      channel: "email",
+      fromIdentifier: "doc@example.com",
+      body: "please pickup tomorrow",
+      receivedAt: new Date().toISOString(),
+      // pickupRequestId intentionally undefined
+    });
+    const spyFrom = vi.spyOn(storageMock, "createRequestFromMessage");
+
+    await convertMessageToRequestAction("msg-fresh");
+
+    expect(spyFrom).toHaveBeenCalledWith("msg-fresh");
+
+    // The message ends up linked to the new request.
+    const messages = await storageMock.listMessages();
+    const refetched = messages.find((m) => m.id === "msg-fresh");
+    expect(refetched?.pickupRequestId).toBeTruthy();
+
+    spyFrom.mockRestore();
+  });
 });
 
 describe("simulateInboundAction", () => {

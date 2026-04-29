@@ -14,7 +14,9 @@ export function ConvertToRequestButton({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     if (
-      !window.confirm("Create a pending pickup request from this message?")
+      !window.confirm(
+        "Create a new pending pickup request from this message? If the message already has a linked request, this creates an additional standalone one you can edit independently.",
+      )
     ) {
       event.preventDefault();
     }
